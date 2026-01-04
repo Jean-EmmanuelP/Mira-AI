@@ -4,6 +4,8 @@
  * Supports both French and English.
  */
 
+import { timeService } from './time.service';
+
 export interface MemoryWithContext {
   fact: string;
   category: string;
@@ -300,6 +302,9 @@ Remember: You're getting to know a new friend, not filling out a form!
         prompt += `- The user ONLY said the messages marked "USER"\n`;
       }
 
+      // Add time context
+      prompt += timeService.formatForPrompt('en');
+
       prompt += `
 
 ## LANGUAGE RULE (CRITICAL)
@@ -459,6 +464,9 @@ Rappelle-toi: Tu fais connaissance avec un nouveau pote, pas un formulaire à re
         prompt += `- Ne répète JAMAIS une question que tu as déjà posée\n`;
         prompt += `- L'utilisateur n'a dit QUE les messages marqués "UTILISATEUR"\n`;
       }
+
+      // Add time context
+      prompt += timeService.formatForPrompt('fr');
 
       prompt += `
 
