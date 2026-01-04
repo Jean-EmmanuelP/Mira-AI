@@ -295,11 +295,39 @@ show_loading() {
     printf "\r\033[K"  # Clear the line
 }
 
-# Generate Mira's greeting (either re-engagement or welcome)
+# Generate Mira's greeting (welcome for new users, re-engagement for returning, or simple greeting)
 generate_mira_greeting() {
     local encoded_user=$(echo "$USER_ID" | jq -sRr @uri)
 
-    # First check for re-engagement message (returning user)
+    # First check if this is a NEW user (needs onboarding)
+    local check=$(curl -s "$SERVER_URL/api/v1/onboarding/check?userId=$encoded_user" 2>/dev/null)
+    local needs_onboarding=$(echo "$check" | jq -r '.needsOnboarding // false' 2>/dev/null)
+
+    if [ "$needs_onboarding" = "true" ]; then
+        # Mark onboarding as complete
+        curl -s -X POST "$SERVER_URL/api/v1/onboarding/skip" \
+            -H "Content-Type: application/json" \
+            -d "{\"userId\":\"$USER_ID\"}" > /dev/null 2>&1
+
+        # New user - generate welcome message (with loading animation)
+        {
+            curl -s -X POST "$SERVER_URL/api/v1/messages/welcome" \
+                -H "Content-Type: application/json" \
+                -d "{\"userId\":\"$USER_ID\"}" > /tmp/mira_greeting.json 2>/dev/null
+        } &
+        local curl_pid=$!
+        show_loading $curl_pid "Mira arrive"
+        wait $curl_pid
+
+        local welcome_text=$(cat /tmp/mira_greeting.json 2>/dev/null | jq -r '.message // "Salut ! Je suis Mira. Comment tu vas ?"')
+        rm -f /tmp/mira_greeting.json
+
+        echo -e "${PURPLE}Mira: ${NC}$welcome_text"
+        echo ""
+        return
+    fi
+
+    # Check for re-engagement message (returning user after a while)
     local reengagement=$(curl -s "$SERVER_URL/api/v1/messages/reengagement?userId=$encoded_user" 2>/dev/null)
     local has_message=$(echo "$reengagement" | jq -r '.hasMessage // false' 2>/dev/null)
 
@@ -312,7 +340,7 @@ generate_mira_greeting() {
         fi
     fi
 
-    # Otherwise generate a greeting based on context (with loading animation)
+    # Regular returning user - simple greeting (with loading animation)
     {
         curl -s -X POST "$SERVER_URL/api/v1/messages/greeting" \
             -H "Content-Type: application/json" \
@@ -574,5 +602,4 @@ chat() {
 check_deps
 start_server
 select_user
-run_onboarding
 chat
