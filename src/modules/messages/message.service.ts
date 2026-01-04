@@ -11,6 +11,7 @@ import { HumanBehaviorService, MiraNote } from '../human/human-behavior.service'
 import { EventService } from '../human/event.service';
 import { ActivityExtractionService } from '../activity/activity-extraction.service';
 import { EventMatchingService, MatchedEvent } from '../activity/event-matching.service';
+import { ThinkingService, ThinkingContext } from '../../shared/thinking.service';
 import {
   PersonalityService,
   MemoryWithContext,
@@ -32,6 +33,7 @@ export class MessageService {
   private eventService = new EventService();
   private activityService = new ActivityExtractionService();
   private eventMatchingService = new EventMatchingService();
+  private thinkingService = new ThinkingService();
 
   // Emojis for random insertion (1/3 of responses)
   private readonly FRIENDLY_EMOJIS = ['😊', '🙂', '😄', '🤗', '✨', '💫', '🌟', '💪', '🎉', '❤️', '🫶', '👍', '🔥', '😉', '🤭'];
@@ -168,16 +170,41 @@ export class MessageService {
       systemPrompt += '\n\n' + emotionContext;
     }
 
-    // Step 11: Generate response
+    // Step 11: Build thinking context for validation
+    const thinkingContext: ThinkingContext = {
+      userMessage: content,
+      memories: memoriesWithContext.map(m => m.fact),
+      goals: goalsWithContext.map(g => g.goal),
+      recentMessages: recentMessages,
+      sentiment: sentiment,
+      isFirstConversation: conversationStats.totalConversations === 0,
+    };
+
+    // Step 12: Generate response with LLM
+    console.log('[MessageService] Generating response with full context...');
     let response = await this.llmService.generate(systemPrompt, content);
 
-    // Step 12: Refine based on sentiment
+    // Step 13: Apply "thinking" process - validate and potentially fix response
+    console.log('[MessageService] Starting thinking process...');
+    const thinkingResult = await this.thinkingService.processWithThinking(
+      response,
+      thinkingContext
+    );
+    response = thinkingResult.response;
+
+    if (thinkingResult.wasFixed) {
+      console.log(`[MessageService] Response was fixed after ${thinkingResult.thinkingTimeMs}ms`);
+    } else {
+      console.log(`[MessageService] Response validated in ${thinkingResult.thinkingTimeMs}ms`);
+    }
+
+    // Step 14: Refine based on sentiment (if negative, make more empathetic)
     response = await this.responseService.refineResponse(response, sentiment);
 
-    // Step 12.5: Add random emoji (1/3 of responses)
+    // Step 15: Add random emoji (1/3 of responses)
     response = this.maybeAddEmoji(response);
 
-    // Step 13: Save response with metadata
+    // Step 16: Save response with metadata
     const assistantMessage = await Message.create({
       userId,
       conversationId,
@@ -191,13 +218,13 @@ export class MessageService {
       },
     });
 
-    // Step 14: Update message with sentiment for pattern detection
+    // Step 17: Update message with sentiment for pattern detection
     await Message.updateOne(
       { _id: userMessage._id },
       { $set: { 'metadata.sentiment': sentiment } }
     );
 
-    // Step 15: Update emotional profile (async)
+    // Step 18: Update emotional profile (async)
     setImmediate(() => {
       const topics = this.extractTopics(content);
       this.humanBehaviorService
