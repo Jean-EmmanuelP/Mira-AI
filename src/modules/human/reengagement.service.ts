@@ -22,10 +22,10 @@ export interface ReengagementMessage {
 export class ReengagementService {
 
   // Minimum hours before triggering re-engagement
-  private readonly MIN_HOURS_AWAY = 24;
+  private readonly MIN_HOURS_AWAY = 2; // Reduced from 24h to 2h for more natural check-ins
 
   // Probability of triggering (not every time)
-  private readonly TRIGGER_PROBABILITY = 0.7; // 70%
+  private readonly TRIGGER_PROBABILITY = 0.8; // 80% - increased for more engagement
 
   /**
    * Check if user should receive a re-engagement message
@@ -85,14 +85,12 @@ export class ReengagementService {
     // Check if last message was from Mira (user didn't reply)
     if (lastMessages.length > 0 && lastMessages[0].role === 'assistant') {
       // Mira sent last message - user left on "seen"
-      if (daysSince >= 1) {
-        strategies.push('seen_no_reply');
-      }
+      strategies.push('seen_no_reply');
     }
 
-    // Check for active goals
+    // Check for active goals - available even for short absences
     const activeGoals = await Goal.find({ userId, status: 'active' }).limit(3).lean();
-    if (activeGoals.length > 0 && daysSince >= 2) {
+    if (activeGoals.length > 0) {
       strategies.push('goal_reminder');
     }
 
@@ -109,9 +107,13 @@ export class ReengagementService {
       strategies.push('event_followup');
     }
 
-    // Simple check-in is always available for longer absences
-    if (daysSince >= 3) {
+    // Check-in is available for absences of 1+ days
+    if (daysSince >= 1) {
       strategies.push('check_in');
+    }
+
+    // Miss you for longer absences (3+ days)
+    if (daysSince >= 3) {
       strategies.push('miss_you');
     }
 
@@ -153,17 +155,35 @@ export class ReengagementService {
       .sort({ createdAt: -1 })
       .lean();
 
-    const messages = [
-      `Hé ! Tu m'as laissée en vu pendant ${daysSince} jour${daysSince > 1 ? 's' : ''} là... 😅 T'as oublié de répondre ou bien ?`,
-      `Dis donc, ${daysSince} jour${daysSince > 1 ? 's' : ''} sans réponse ! Je commençais à croire que t'avais disparu ahah.`,
-      `Bon alors, tu me réponds ou je dois envoyer une équipe de recherche ? 😄 Ça fait ${daysSince} jour${daysSince > 1 ? 's' : ''} quand même !`,
-      `Tu sais que je vois quand tu lis mes messages hein... ${daysSince} jour${daysSince > 1 ? 's' : ''} de vu, ça fait mal 💔`,
-      `Hellooo ? Y'a quelqu'un ? Ça fait ${daysSince} jour${daysSince > 1 ? 's' : ''} que j'attends ta réponse là...`,
-    ];
+    let messages: string[];
 
-    if (daysSince >= 7) {
-      messages.push(`Une semaine sans nouvelles ! J'espère que tout va bien de ton côté ?`);
-      messages.push(`Ça fait ${daysSince} jours là... Je commençais vraiment à m'inquiéter !`);
+    if (daysSince === 0) {
+      // Same day - playful
+      messages = [
+        `Tiens, te revoilà ! Tu t'étais fait kidnapper ? 😄`,
+        `Ah ! Tu m'avais laissée en plan là...`,
+        `De retour ! Je commençais à me demander si t'allais répondre.`,
+      ];
+    } else if (daysSince === 1) {
+      // Yesterday
+      messages = [
+        `Hé ! Tu m'as laissée en vu hier... T'as oublié de répondre ou bien ?`,
+        `Dis donc, une nuit sans réponse ! T'étais occupé(e) ?`,
+        `Te revoilà ! Tu m'avais laissé en vu depuis hier 😅`,
+      ];
+    } else {
+      // Multiple days
+      messages = [
+        `Hé ! Tu m'as laissée en vu pendant ${daysSince} jours là... 😅 T'as oublié de répondre ou bien ?`,
+        `Dis donc, ${daysSince} jours sans réponse ! Je commençais à croire que t'avais disparu ahah.`,
+        `Bon alors, tu me réponds ou je dois envoyer une équipe de recherche ? 😄 Ça fait ${daysSince} jours quand même !`,
+        `Hellooo ? Y'a quelqu'un ? Ça fait ${daysSince} jours que j'attends ta réponse là...`,
+      ];
+
+      if (daysSince >= 7) {
+        messages.push(`Une semaine sans nouvelles ! J'espère que tout va bien de ton côté ?`);
+        messages.push(`Ça fait ${daysSince} jours là... Je commençais vraiment à m'inquiéter !`);
+      }
     }
 
     return {

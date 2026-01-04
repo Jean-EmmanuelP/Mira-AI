@@ -58,7 +58,15 @@ async function registerRoutes() {
     try {
       const Message = (await import('./database/schemas/message.schema')).Message;
       const users = await Message.distinct('userId');
-      return { users: users.filter((u: string) => u && !u.startsWith('test-')) };
+      // Filter out test users and invalid names (starting with / or empty)
+      return {
+        users: users.filter((u: string) =>
+          u &&
+          !u.startsWith('test-') &&
+          !u.startsWith('/') &&
+          u.trim().length > 0
+        )
+      };
     } catch (error) {
       return { users: [] };
     }
@@ -75,17 +83,31 @@ async function registerRoutes() {
       const Goal = (await import('./database/schemas/goal.schema')).Goal;
       const EmotionalProfile = (await import('./database/schemas/emotional-profile.schema')).EmotionalProfile;
       const Onboarding = (await import('./database/schemas/onboarding.schema')).Onboarding;
+      const Event = (await import('./database/schemas/event.schema')).Event;
+      const UserActivity = (await import('./database/schemas/user-activity.schema')).UserActivity;
+      const MiraProfile = (await import('./database/schemas/mira-profile.schema')).MiraProfile;
 
-      // Delete all user data
-      const [messages, memories, goals, profile, onboarding] = await Promise.all([
+      // Delete all user data from all collections
+      const [messages, memories, goals, profile, onboarding, events, activities, miraProfile] = await Promise.all([
         Message.deleteMany({ userId }),
         SemanticMemory.deleteMany({ userId }),
         Goal.deleteMany({ userId }),
         EmotionalProfile.deleteMany({ userId }),
-        Onboarding.deleteMany({ userId })
+        Onboarding.deleteMany({ userId }),
+        Event.deleteMany({ userId }),
+        UserActivity.deleteMany({ userId }),
+        MiraProfile.deleteMany({ userId })
       ]);
 
-      console.log(`🗑️ Deleted user ${userId}: ${messages.deletedCount} messages, ${memories.deletedCount} memories`);
+      // Also clear from Qdrant vector DB
+      try {
+        const qdrant = new QdrantService();
+        await qdrant.deleteByUserId(userId);
+      } catch (e) {
+        console.warn('Could not clear Qdrant vectors:', e);
+      }
+
+      console.log(`🗑️ Deleted user ${userId}: ${messages.deletedCount} messages, ${memories.deletedCount} memories, ${events.deletedCount} events, ${activities.deletedCount} activities`);
 
       return {
         success: true,
@@ -94,7 +116,10 @@ async function registerRoutes() {
           memories: memories.deletedCount,
           goals: goals.deletedCount,
           profile: profile.deletedCount,
-          onboarding: onboarding.deletedCount
+          onboarding: onboarding.deletedCount,
+          events: events.deletedCount,
+          activities: activities.deletedCount,
+          miraProfile: miraProfile.deletedCount
         }
       };
     } catch (error) {
@@ -123,6 +148,7 @@ async function registerRoutes() {
     let userId: string;
     let conversationId: string;
     let messageContent: string;
+    let lang: 'en' | 'fr' = 'fr';
     let isAudioInput = false;
     let emotionContext: string | null = null;
 
@@ -140,6 +166,7 @@ async function registerRoutes() {
       const fields = data.fields as any;
       userId = fields.userId?.value || fields.user_id?.value;
       conversationId = fields.conversationId?.value || fields.conversation_id?.value || `conv-${Date.now()}`;
+      lang = fields.lang?.value === 'en' ? 'en' : 'fr';
 
       if (!userId) {
         return reply.status(400).send({ error: 'Missing userId in form data' });
@@ -185,23 +212,44 @@ async function registerRoutes() {
       userId = body.userId || body.user_id;
       conversationId = body.conversationId || body.conversation_id || `conv-${Date.now()}`;
       messageContent = body.content || body.message;
+      lang = body.lang === 'en' ? 'en' : 'fr';
 
       if (!userId || !messageContent) {
         return reply.status(400).send({ error: 'Missing required fields: userId, content/message' });
       }
     }
 
-    // Process the message with emotion context if available
-    const response = await service.processMessage(userId, conversationId, messageContent, emotionContext);
+    // Process the message with emotion context and language if available
+    const response = await service.processMessage(userId, conversationId, messageContent, emotionContext, lang);
 
-    // Decide if we should send audio response (random, ~25% of the time)
+    // Calculate realistic typing delay based on response length
+    // Average typing speed: 38-40 words per minute = ~1.5 seconds per word
+    const calculateTypingDelay = (text: string): number => {
+      const wordCount = text.trim().split(/\s+/).length;
+      const baseDelayPerWord = 1500; // ms
+      let delay = wordCount * baseDelayPerWord;
+      // Add randomness (±20%)
+      const randomFactor = 0.8 + Math.random() * 0.4;
+      delay = delay * randomFactor;
+      // Add thinking delay (0.5-2 seconds)
+      const thinkingDelay = 500 + Math.random() * 1500;
+      delay += thinkingDelay;
+      // Cap between 1 and 15 seconds
+      delay = Math.max(1000, Math.min(delay, 15000));
+      return Math.round(delay);
+    };
+
+    const typingDelay = calculateTypingDelay(response.content);
+
+    // Decide if we should send audio response
+    // Only respond with audio if the user sent audio input
     let audioResponse: string | null = null;
-    const shouldSendAudio = gradiumService.isEnabled() && gradiumService.shouldSendVoiceResponse();
+    const shouldSendAudio = isAudioInput && gradiumService.isEnabled();
 
     if (shouldSendAudio) {
       try {
         audioResponse = await gradiumService.textToSpeech(response.content);
-        console.log(`🔊 TTS generated for response (random voice reply)`);
+        console.log(`🔊 TTS generated for response (user sent audio)`);
       } catch (error) {
         console.error('TTS error:', error);
         // Continue without audio, not a fatal error
@@ -213,7 +261,8 @@ async function registerRoutes() {
       response: response.content,
       conversationId: conversationId,
       inputType: isAudioInput ? 'audio' : 'text',
-      // Audio response (base64) - only present ~25% of the time
+      typingDelay, // Frontend should wait this long before displaying response
+      // Audio response (base64) - only present when user sent audio
       ...(audioResponse && {
         audioResponse: audioResponse,
         audioFormat: 'wav',

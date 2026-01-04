@@ -2,12 +2,19 @@ import { generateText } from 'ai';
 import { google } from '@ai-sdk/google';
 import { anthropic } from '@ai-sdk/anthropic';
 import { mistral } from '@ai-sdk/mistral';
+import { createOpenAI } from '@ai-sdk/openai';
 
 interface ModelConfig {
   name: string;
   model: any;
   enabled: boolean;
 }
+
+// Create DeepSeek provider (OpenAI-compatible API)
+const deepseek = createOpenAI({
+  baseURL: 'https://api.deepseek.com',
+  apiKey: process.env.DEEPSEEK_API_KEY || '',
+});
 
 export class LLMService {
   private models: ModelConfig[];
@@ -17,7 +24,7 @@ export class LLMService {
 
     const enabledModels = this.models.filter(m => m.enabled).map(m => m.name);
     if (enabledModels.length === 0) {
-      throw new Error('No LLM API keys configured. Set at least one of: GOOGLE_GENERATIVE_AI_API_KEY, ANTHROPIC_API_KEY, MISTRAL_API_KEY');
+      throw new Error('No LLM API keys configured. Set at least one of: GOOGLE_GENERATIVE_AI_API_KEY, ANTHROPIC_API_KEY, MISTRAL_API_KEY, DEEPSEEK_API_KEY');
     }
 
     console.log(`🤖 LLM Models enabled: ${enabledModels.join(', ')}`);
@@ -34,6 +41,11 @@ export class LLMService {
         name: 'Claude',
         model: anthropic('claude-3-5-haiku-latest'),
         enabled: !!process.env.ANTHROPIC_API_KEY,
+      },
+      {
+        name: 'DeepSeek',
+        model: deepseek('deepseek-chat'),
+        enabled: !!process.env.DEEPSEEK_API_KEY,
       },
       {
         name: 'Mistral',

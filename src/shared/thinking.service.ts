@@ -31,6 +31,25 @@ export class ThinkingService {
   private readonly TYPING_SPEED = 50; // ms per character (simulates typing)
 
   /**
+   * Calculate similarity between two questions using word overlap
+   */
+  private calculateQuestionSimilarity(q1: string, q2: string): number {
+    const words1 = new Set(q1.split(/\s+/).filter(w => w.length > 3));
+    const words2 = new Set(q2.split(/\s+/).filter(w => w.length > 3));
+
+    if (words1.size === 0 || words2.size === 0) return 0;
+
+    let matches = 0;
+    for (const word of words1) {
+      if (words2.has(word)) matches++;
+    }
+
+    // Jaccard-like similarity
+    const union = new Set([...words1, ...words2]).size;
+    return matches / union;
+  }
+
+  /**
    * Calculate a realistic "thinking" delay based on message complexity
    */
   calculateThinkingDelay(userMessage: string, contextSize: number): number {
@@ -114,6 +133,40 @@ export class ThinkingService {
       }
     }
 
+    // Check if Mira is attributing her own words to the user
+    // Pattern: "quand tu dis X" where X was said by Mira, not user
+    if (context.recentMessages.length > 0) {
+      const miraMessages = context.recentMessages
+        .filter(m => m.role === 'assistant')
+        .map(m => m.content.toLowerCase());
+
+      const userMessages = context.recentMessages
+        .filter(m => m.role === 'user')
+        .map(m => m.content.toLowerCase());
+
+      // Check for "quand tu dis/disais" patterns
+      const quotePatterns = [
+        /quand tu (dis|disais|parles de|mentionnes?) [""«]?([^""»?!.]+)[""»]?/i,
+        /tu (dis|disais|parles de|mentionnes?) [""«]?([^""»?!.]+)[""»]?/i,
+        /ce que tu (dis|disais|appelles?) [""«]?([^""»?!.]+)[""»]?/i,
+      ];
+
+      for (const pattern of quotePatterns) {
+        const match = response.match(pattern);
+        if (match && match[2]) {
+          const quotedPhrase = match[2].toLowerCase().trim();
+          // Check if this phrase appears in Mira's messages but NOT in user's
+          const miraUsedIt = miraMessages.some(m => m.includes(quotedPhrase));
+          const userUsedIt = userMessages.some(m => m.includes(quotedPhrase));
+
+          if (miraUsedIt && !userUsedIt && quotedPhrase.length > 3) {
+            issues.push(`Mira attribue ses propres mots à l'utilisateur: "${quotedPhrase}"`);
+            shouldRegenerate = true;
+          }
+        }
+      }
+    }
+
     // Check for forbidden patterns (Mira claiming experiences)
     const forbiddenPatterns = [
       { pattern: /moi aussi (je|j')/i, issue: 'Mira prétend avoir une expérience similaire' },
@@ -161,12 +214,47 @@ export class ThinkingService {
       'je suis une ia',
       'en tant qu\'assistant',
       'je n\'ai pas de sentiments',
+      'c\'est bien ça',
+      'de quoi aimerais-tu',
+      'de quoi voudrais-tu',
+      'de quoi souhaitez-vous',
+      'd\'accord, je comprends',
+      'c\'est une bonne question',
+      'c\'est une excellente question',
+      'en quoi puis-je',
+      'que puis-je faire pour',
     ];
 
     for (const phrase of roboticPhrases) {
       if (responseLower.includes(phrase)) {
         issues.push(`Phrase robotique détectée: "${phrase}"`);
         shouldRegenerate = true;
+      }
+    }
+
+    // Check for duplicate question (Mira asking the same thing she already asked)
+    if (context.recentMessages.length > 0) {
+      const previousMiraQuestions = context.recentMessages
+        .filter(m => m.role === 'assistant')
+        .map(m => m.content.toLowerCase())
+        .filter(c => c.includes('?'));
+
+      // Extract the question part from current response
+      const currentQuestions = responseLower.split('?')
+        .slice(0, -1)
+        .map(q => q.trim().split(/[.!]/).pop()?.trim() || '');
+
+      for (const currentQ of currentQuestions) {
+        if (currentQ.length < 10) continue;
+        for (const prevQ of previousMiraQuestions) {
+          // Check if similar question was already asked
+          const similarity = this.calculateQuestionSimilarity(currentQ, prevQ);
+          if (similarity > 0.7) {
+            issues.push(`Question dupliquée détectée: "${currentQ}"`);
+            shouldRegenerate = true;
+            break;
+          }
+        }
       }
     }
 

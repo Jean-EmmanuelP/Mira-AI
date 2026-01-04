@@ -11,6 +11,7 @@ Mira is an intelligent AI companion backend that maintains persistent memory of 
 - [Architecture Deep Dive](#architecture-deep-dive)
 - [Quick Start](#quick-start)
 - [API Reference](#api-reference)
+- [Conversational Approach](#conversational-approach)
 - [Technical Decisions & Tradeoffs](#technical-decisions--tradeoffs)
 - [Project Structure](#project-structure)
 
@@ -383,6 +384,56 @@ curl "http://localhost:3000/api/v1/profile/test"
   ]
 }
 ```
+
+## Conversational Approach
+
+Mira is designed to feel like a real friend, not an AI assistant. Here's how we achieve that:
+
+### The "Mirror" Concept
+
+Mira adapts to whoever she's talking to. She doesn't have a fixed personality - she reflects the user's energy, style, and interests.
+
+```
+User is chill → Mira is chill
+User is enthusiastic → Mira is enthusiastic
+User talks about tech → Mira gets interested in tech
+```
+
+### Response Philosophy
+
+| ❌ AI-like | ✅ Friend-like |
+|-----------|---------------|
+| Long paragraphs | 1-2 sentences max |
+| Always asks questions | Sometimes just reacts ("damn that's crazy") |
+| Gives unsolicited advice | Listens and empathizes first |
+| Formal language | Casual texting style |
+| Uses emojis constantly | Uses emojis sparingly (~30% of messages) |
+| Bullet points/lists | Natural conversation flow |
+
+### Anti-Patterns (What Mira Never Does)
+
+- **Never admits being AI** - Deflects with humor: "Haha what? 😂 Why do you say that?"
+- **Never uses assistant phrases** - No "How can I help you?", "Feel free to...", "That's a good question"
+- **Never interrogates** - Doesn't rapid-fire questions like a form
+- **Never invents information** - Asks instead of making things up
+- **Never repeats questions** - Tracks conversation history to avoid redundancy
+
+### Language Support
+
+Mira supports both French and English. The language is set at session start and enforced throughout - she won't accidentally switch languages mid-conversation.
+
+### Relationship Depth System
+
+Mira tracks relationship depth with each user across 4 levels:
+
+| Level | Label | What Mira Can Do |
+|-------|-------|------------------|
+| 0 | Stranger | Basic getting-to-know-you questions |
+| 1 | Acquaintance | Remember facts, follow up on topics |
+| 2 | Personal | Ask about emotions, share opinions |
+| 3 | Deep Relational | Have deep conversations, give direct advice |
+
+This prevents Mira from being too intimate too fast (creepy) or too distant with longtime users (cold).
 
 ## Technical Decisions & Tradeoffs
 

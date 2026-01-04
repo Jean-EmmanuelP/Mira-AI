@@ -111,6 +111,31 @@ export class QdrantService {
     }
   }
 
+  /**
+   * Delete all vectors for a specific user
+   */
+  async deleteByUserId(userId: string): Promise<void> {
+    try {
+      await axios.post(
+        `${this.baseUrl}/collections/${this.collectionName}/points/delete`,
+        {
+          filter: {
+            must: [
+              {
+                key: 'userId',
+                match: { value: userId },
+              },
+            ],
+          },
+        },
+        { headers: this.getHeaders() }
+      );
+      console.log(`🗑️ Deleted Qdrant vectors for user ${userId}`);
+    } catch (error: any) {
+      console.error('Qdrant deleteByUserId error:', error.message);
+    }
+  }
+
   private hashString(str: string): number {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {

@@ -19,14 +19,18 @@ export class RelevanceService {
   ): number {
     let score = 0;
 
-    // Vector similarity (50%)
-    score += vectorSimilarity * 0.5;
+    // Vector similarity (40%) - reduced from 50% to give more weight to exact matches
+    score += vectorSimilarity * 0.4;
 
-    // Entity match (30%)
+    // Entity match (40%) - increased from 30% to prioritize exact keyword matches
+    // This helps filter out semantically similar but contextually different memories
     const matches = entities.filter((e) =>
       queryEntities.some((qe) => qe.toLowerCase().includes(e.toLowerCase()))
     );
-    score += (matches.length / Math.max(queryEntities.length, 1)) * 0.3;
+    const entityScore = matches.length > 0
+      ? (matches.length / Math.max(queryEntities.length, 1))
+      : 0;
+    score += entityScore * 0.4;
 
     // Recency (15%) - decay over 30 days
     const recency = Math.exp(-daysSince / 30);

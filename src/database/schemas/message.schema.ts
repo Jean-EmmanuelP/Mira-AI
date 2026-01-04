@@ -5,6 +5,7 @@ export interface IMessage extends Document {
   conversationId: string;
   role: 'user' | 'assistant';
   content: string;
+  embedding?: number[]; // Vector embedding for semantic search
   metadata?: {
     sentiment?: string;
     topics?: string[];
@@ -14,6 +15,9 @@ export interface IMessage extends Document {
     goalsActive?: number;
     isWelcome?: boolean;
     isGreeting?: boolean;
+    robotScore?: number; // 0-100, lower is more human
+    aiValidationPassed?: boolean; // Whether AI validation passed
+    isDeflection?: boolean; // Response to AI suspicion
   };
   createdAt: Date;
   updatedAt: Date;
@@ -25,6 +29,7 @@ const messageSchema = new Schema<IMessage>(
     conversationId: { type: String, required: true, index: true },
     role: { type: String, enum: ['user', 'assistant'], required: true },
     content: { type: String, required: true },
+    embedding: { type: [Number], default: undefined }, // Vector embedding (768 dimensions)
     metadata: {
       sentiment: String,
       topics: [String],
@@ -34,6 +39,9 @@ const messageSchema = new Schema<IMessage>(
       goalsActive: Number,
       isWelcome: Boolean,
       isGreeting: Boolean,
+      robotScore: Number,
+      aiValidationPassed: Boolean,
+      isDeflection: Boolean,
     },
   },
   { timestamps: true }
