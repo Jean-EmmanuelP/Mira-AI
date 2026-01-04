@@ -13,6 +13,7 @@ export interface IMessage extends Document {
     patternsDetected?: number;
     goalsActive?: number;
     isWelcome?: boolean;
+    isGreeting?: boolean;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -32,6 +33,7 @@ const messageSchema = new Schema<IMessage>(
       patternsDetected: Number,
       goalsActive: Number,
       isWelcome: Boolean,
+      isGreeting: Boolean,
     },
   },
   { timestamps: true }

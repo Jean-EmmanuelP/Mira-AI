@@ -78,6 +78,42 @@ export class ThinkingService {
 
     const responseLower = response.toLowerCase();
 
+    // Check for repetition of what user just said
+    if (context.recentMessages.length > 0) {
+      const lastUserMessage = context.recentMessages
+        .filter(m => m.role === 'user')
+        .pop();
+
+      if (lastUserMessage) {
+        // Check if Mira is repeating user's words with "toujours"
+        const userKeywords = lastUserMessage.content.toLowerCase()
+          .split(/\s+/)
+          .filter(w => w.length > 4);
+
+        for (const keyword of userKeywords) {
+          if (responseLower.includes(`toujours`) && responseLower.includes(keyword)) {
+            issues.push(`Répétition inutile de "${keyword}" avec "toujours"`);
+            shouldRegenerate = true;
+          }
+        }
+      }
+
+      // Check if Mira forgot what SHE said
+      const lastMiraMessage = context.recentMessages
+        .filter(m => m.role === 'assistant')
+        .pop();
+
+      if (lastMiraMessage) {
+        const miraContent = lastMiraMessage.content.toLowerCase();
+        // If Mira mentioned a film/book/thing and now asks "c'est quoi le rapport"
+        if ((miraContent.includes('film') || miraContent.includes('livre') || miraContent.includes('penser'))
+            && responseLower.includes('c\'est quoi le rapport')) {
+          issues.push('Mira oublie ce qu\'elle a dit (demande le rapport alors qu\'elle a fait la connexion)');
+          shouldRegenerate = true;
+        }
+      }
+    }
+
     // Check for forbidden patterns (Mira claiming experiences)
     const forbiddenPatterns = [
       { pattern: /moi aussi (je|j')/i, issue: 'Mira prétend avoir une expérience similaire' },

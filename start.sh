@@ -281,9 +281,25 @@ run_onboarding() {
     echo ""
 }
 
-# Check for re-engagement message
-check_reengagement() {
+# Animated loading spinner
+show_loading() {
+    local pid=$1
+    local msg="${2:-Mira réfléchit}"
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while kill -0 $pid 2>/dev/null; do
+        local temp=${spinstr#?}
+        printf "\r${GRAY}%s %s...${NC}" "${spinstr:0:1}" "$msg"
+        spinstr=$temp${spinstr%"$temp"}
+        sleep 0.1
+    done
+    printf "\r\033[K"  # Clear the line
+}
+
+# Generate Mira's greeting (either re-engagement or welcome)
+generate_mira_greeting() {
     local encoded_user=$(echo "$USER_ID" | jq -sRr @uri)
+
+    # First check for re-engagement message (returning user)
     local reengagement=$(curl -s "$SERVER_URL/api/v1/messages/reengagement?userId=$encoded_user" 2>/dev/null)
     local has_message=$(echo "$reengagement" | jq -r '.hasMessage // false' 2>/dev/null)
 
@@ -292,7 +308,26 @@ check_reengagement() {
         if [ -n "$message" ]; then
             echo -e "${PURPLE}Mira: ${NC}$message"
             echo ""
+            return
         fi
+    fi
+
+    # Otherwise generate a greeting based on context (with loading animation)
+    {
+        curl -s -X POST "$SERVER_URL/api/v1/messages/greeting" \
+            -H "Content-Type: application/json" \
+            -d "{\"userId\":\"$USER_ID\"}" > /tmp/mira_greeting.json 2>/dev/null
+    } &
+    local curl_pid=$!
+    show_loading $curl_pid "Mira arrive"
+    wait $curl_pid
+
+    local greeting_text=$(cat /tmp/mira_greeting.json 2>/dev/null | jq -r '.message // ""')
+    rm -f /tmp/mira_greeting.json
+
+    if [ -n "$greeting_text" ] && [ "$greeting_text" != "null" ]; then
+        echo -e "${PURPLE}Mira: ${NC}$greeting_text"
+        echo ""
     fi
 }
 
@@ -460,15 +495,15 @@ chat() {
     echo " |_|  |_|_|_|  \__,_|"
     echo -e "${NC}"
     echo ""
-    echo -e "${BLUE}Salut $USER_ID ! Tape '/help' pour les commandes.${NC}"
+    echo -e "${GRAY}Tape '/help' pour les commandes.${NC}"
 
     if [ "$HAS_AUDIO" = "true" ]; then
         echo -e "${GRAY}Mode audio activé: /audio pour enregistrer${NC}"
     fi
     echo ""
 
-    # Check for re-engagement message (proactive Mira)
-    check_reengagement
+    # Mira génère son message d'accueil OU de re-engagement
+    generate_mira_greeting
 
     while true; do
         echo -ne "${GREEN}$USER_ID: ${NC}"
@@ -508,17 +543,23 @@ chat() {
             continue
         fi
 
-        # Send text message to Mira
-        echo -ne "${PURPLE}Mira: ${NC}"
+        # Send text message to Mira (with loading animation)
+        {
+            curl -s -X POST "$SERVER_URL/chat" \
+                -H "Content-Type: application/json" \
+                -d "$(jq -n --arg u "$USER_ID" --arg m "$message" '{userId:$u,message:$m}')" > /tmp/mira_response.json 2>/dev/null
+        } &
+        local curl_pid=$!
+        show_loading $curl_pid "Mira réfléchit"
+        wait $curl_pid
 
-        response=$(curl -s -X POST "$SERVER_URL/chat" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n --arg u "$USER_ID" --arg m "$message" '{userId:$u,message:$m}')")
+        response=$(cat /tmp/mira_response.json 2>/dev/null)
+        rm -f /tmp/mira_response.json
 
         text_response=$(echo "$response" | jq -r '.response // "..."')
         audio_response=$(echo "$response" | jq -r '.audioResponse // null')
 
-        echo -e "$text_response"
+        echo -e "${PURPLE}Mira: ${NC}$text_response"
 
         # Play audio response if available (random ~25% of the time from server)
         if [ "$audio_response" != "null" ] && [ -n "$audio_response" ]; then
