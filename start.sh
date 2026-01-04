@@ -263,22 +263,14 @@ run_onboarding() {
         return
     fi
 
-    # Mark onboarding as skipped (we'll do it conversationally through chat)
+    # Mark onboarding as complete
     curl -s -X POST "$SERVER_URL/api/v1/onboarding/skip" \
         -H "Content-Type: application/json" \
         -d "{\"userId\":\"$USER_ID\"}" > /dev/null 2>&1
 
-    # Send initial conversational message to Mira
+    # Mira initie la conversation avec un message de bienvenue naturel
     echo ""
-    echo -ne "${PURPLE}Mira: ${NC}"
-
-    local intro_response=$(curl -s -X POST "$SERVER_URL/chat" \
-        -H "Content-Type: application/json" \
-        -d "$(jq -n --arg u "$USER_ID" --arg m "Salut, je m'appelle $USER_ID et c'est la première fois qu'on se parle !" \
-            '{userId:$u,message:$m}')")
-
-    local intro_text=$(echo "$intro_response" | jq -r '.response // "Salut! Enchanté de te rencontrer!"')
-    echo -e "$intro_text"
+    echo -e "${PURPLE}Mira: ${NC}Salut ! Je suis Mira. Comment tu t'appelles ?"
     echo ""
 }
 
