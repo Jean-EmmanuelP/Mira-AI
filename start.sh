@@ -68,7 +68,7 @@ L() {
             server_ready) echo "Server ready!" ;;
             server_error) echo "Error: Server did not start" ;;
             stopping) echo "Stopping Mira..." ;;
-            your_friend) echo "Your friend who truly knows you" ;;
+            your_friend) echo "She remembers your dog's name. She asks about your interview." ;;
             warning_delete_all) echo "This will delete ALL your data!" ;;
             messages) echo "Messages" ;;
             memories) echo "Memories" ;;
@@ -142,7 +142,7 @@ L() {
             server_ready) echo "Serveur prêt!" ;;
             server_error) echo "Erreur: Le serveur n'a pas démarré" ;;
             stopping) echo "Arrêt de Mira..." ;;
-            your_friend) echo "Ton amie qui te connaît vraiment" ;;
+            your_friend) echo "Elle se souvient du nom de ton chien. Elle te demande comment s'est passé ton entretien." ;;
             warning_delete_all) echo "Cela va supprimer TOUTES tes données !" ;;
             messages) echo "Messages" ;;
             memories) echo "Mémoires" ;;

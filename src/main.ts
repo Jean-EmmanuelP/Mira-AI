@@ -10,6 +10,7 @@ import { memoryRoutes } from './modules/memory/memory.routes';
 import { profileRoutes } from './modules/profile/profile.routes';
 import { onboardingRoutes } from './modules/onboarding/onboarding.routes';
 import { activityRoutes } from './modules/activity/activity.routes';
+import { reminderRoutes } from './modules/reminders/reminder.routes';
 import { StatsService } from './monitoring/stats.service';
 import { GradiumService } from './shared/gradium.service';
 import { HumeService } from './shared/hume.service';
@@ -139,6 +140,7 @@ async function registerRoutes() {
   await app.register(profileRoutes, { prefix: '/api/v1/profile' });
   await app.register(onboardingRoutes, { prefix: '/api/v1/onboarding' });
   await app.register(activityRoutes, { prefix: '/api/v1/activity' });
+  await app.register(reminderRoutes, { prefix: '/api/v1/reminders' });
 
   // Root POST /chat - supports both text and audio
   app.post('/chat', async (req: FastifyRequest, reply: FastifyReply) => {

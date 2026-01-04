@@ -23,6 +23,7 @@ import {
   GoalWithContext,
   ConversationContext,
 } from '../../shared/personality.service';
+import { reminderService } from '../reminders/reminder.service';
 
 export class MessageService {
   private llmService = new LLMService();
@@ -62,12 +63,14 @@ export class MessageService {
       conversationMemoryService.embedMessage(userMessage._id.toString(), content).catch(console.error);
     });
 
-    // Step 2: Async memory, goal, event & activity processing (don't block response)
+    // Step 2: Async memory, goal, event, activity & reminder processing (don't block response)
     setImmediate(() => {
       this.memoryService.processMessage(userId, content).catch(console.error);
       this.goalService.detectGoals(userId, content).catch(console.error);
       this.eventService.processEvents(userId, content).catch(console.error);
       this.activityService.processMessage(userId, content).catch(console.error);
+      // Detect events with dates and create reminders
+      reminderService.processMessage(userId, content).catch(console.error);
     });
 
     // Step 3: Gather all context in parallel

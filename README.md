@@ -148,9 +148,42 @@ See `.env.example` for all options.
 ## What Makes Mira Different
 
 1. **Semantic memory** - Understands meaning, not keywords
-2. **Goal tracking** - Proactively follows up ("How did the interview go?")
-3. **Humanity checks** - Multiple layers ensure natural responses
-4. **Relationship depth** - Adapts intimacy over time
-5. **Mirror personality** - Reflects user's energy and style
+2. **Time awareness** - Knows what time it is and adapts greetings ("Tu dors pas ?" at 2am)
+3. **Proactive reminders** - Detects events and follows up ("How did your Google interview go?")
+4. **Goal tracking** - Proactively follows up on goals weeks later
+5. **Humanity checks** - Multiple layers ensure natural responses
+6. **Relationship depth** - Adapts intimacy over time
+7. **Mirror personality** - Reflects user's energy and style
 
 The goal: **make users forget they're talking to an AI**.
+
+---
+
+## Proactive Reminders
+
+When you mention an event with a date, Mira automatically schedules reminders:
+
+```bash
+# User says:
+"J'ai un entretien chez Google demain matin"
+
+# Mira creates:
+# 1. BEFORE reminder (evening before): "Bonne chance pour demain !"
+# 2. AFTER reminder (next evening): "Alors, ça s'est passé comment chez Google ?"
+```
+
+### API
+
+```bash
+# Get due notifications
+GET /api/v1/reminders/notifications?userId=xxx
+
+# Get upcoming reminders
+GET /api/v1/reminders/upcoming?userId=xxx
+
+# Mark as sent
+POST /api/v1/reminders/notifications/:id/sent
+
+# Snooze (delay 2 hours)
+POST /api/v1/reminders/notifications/:id/snooze
+```
