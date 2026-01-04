@@ -306,24 +306,35 @@ record_audio() {
 
     local audio_file="$AUDIO_DIR/recording_$(date +%s).wav"
 
-    echo -e "${CYAN}🎤 Enregistrement... (Ctrl+C pour arrêter)${NC}"
-    echo -e "${GRAY}Parle maintenant...${NC}"
+    echo -e "${CYAN}🎤 Enregistrement en cours...${NC}"
+    echo -e "${YELLOW}>>> Appuie sur ENTRÉE pour arrêter <<<${NC}"
+    echo ""
 
-    # Record audio with SoX (5 seconds by default, or until Ctrl+C)
-    # Using silence detection to auto-stop
-    rec -q "$audio_file" rate 16k silence 1 0.1 3% 1 2.0 3% trim 0 10 2>/dev/null &
+    # Start recording in background
+    rec -q "$audio_file" rate 16k channels 1 2>/dev/null &
     local rec_pid=$!
 
-    # Allow manual stop with Enter
-    echo -e "${GRAY}(Appuie sur Entrée pour arrêter)${NC}"
-    read -r -t 10 _
+    # Wait for Enter key
+    read -r _
+
+    # Stop recording
     kill $rec_pid 2>/dev/null
     wait $rec_pid 2>/dev/null
 
+    # Small delay to ensure file is written
+    sleep 0.3
+
     if [ -f "$audio_file" ] && [ -s "$audio_file" ]; then
-        echo -e "${GREEN}✓ Audio enregistré${NC}"
-        echo "$audio_file"
-        return 0
+        local file_size=$(stat -f%z "$audio_file" 2>/dev/null || stat -c%s "$audio_file" 2>/dev/null)
+        if [ "$file_size" -gt 1000 ]; then
+            echo -e "${GREEN}✓ Audio enregistré (${file_size} bytes)${NC}"
+            echo "$audio_file"
+            return 0
+        else
+            echo -e "${RED}✗ Enregistrement trop court${NC}"
+            rm -f "$audio_file" 2>/dev/null
+            return 1
+        fi
     else
         echo -e "${RED}✗ Erreur d'enregistrement${NC}"
         return 1

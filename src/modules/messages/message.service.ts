@@ -71,6 +71,7 @@ export class MessageService {
       relevantEvents,
       userActivities,
       matchedNewsEvent,
+      recentMessages,
     ] = await Promise.all([
       this.sentimentService.analyzeSentiment(content),
       this.retrievalService.retrieveRelevantMemories(userId, content, 8),
@@ -82,6 +83,7 @@ export class MessageService {
       this.eventService.getRelevantEvents(userId, 5),
       this.activityService.getTopActivities(userId, 5),
       this.eventMatchingService.getEventForResponse(userId),
+      this.getRecentMessages(userId, conversationId, 10),
     ]);
 
     // Step 4: Transform memories to include temporal context
@@ -110,6 +112,7 @@ export class MessageService {
       currentSentiment: sentiment,
       conversationCount: conversationStats.totalConversations,
       lastInteraction: conversationStats.lastInteraction,
+      recentMessages: recentMessages,
     };
 
     // Step 7: Generate system prompt with Mira's personality
@@ -296,6 +299,32 @@ export class MessageService {
       userId,
       conversationId,
     }).sort({ createdAt: 1 });
+  }
+
+  /**
+   * Get recent messages for conversation context
+   * Excludes the current message being processed
+   */
+  private async getRecentMessages(
+    userId: string,
+    conversationId: string,
+    limit: number = 10
+  ): Promise<{ role: string; content: string }[]> {
+    const messages = await Message.find({
+      userId,
+      conversationId,
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit + 1) // +1 to account for current message
+      .lean();
+
+    // Exclude the very last message (current one) and reverse to chronological order
+    const relevantMessages = messages.slice(1).reverse();
+
+    return relevantMessages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
   }
 
   /**
