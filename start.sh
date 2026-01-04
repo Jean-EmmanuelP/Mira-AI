@@ -268,9 +268,16 @@ run_onboarding() {
         -H "Content-Type: application/json" \
         -d "{\"userId\":\"$USER_ID\"}" > /dev/null 2>&1
 
-    # Mira initie la conversation avec un message de bienvenue naturel
+    # Mira génère son propre message de bienvenue via l'API
     echo ""
-    echo -e "${PURPLE}Mira: ${NC}Salut ! Je suis Mira. Comment tu t'appelles ?"
+    echo -ne "${PURPLE}Mira: ${NC}"
+
+    local welcome_response=$(curl -s -X POST "$SERVER_URL/api/v1/messages/welcome" \
+        -H "Content-Type: application/json" \
+        -d "{\"userId\":\"$USER_ID\"}" 2>/dev/null)
+
+    local welcome_text=$(echo "$welcome_response" | jq -r '.message // "Salut ! Je suis Mira. Comment tu vas ?"')
+    echo -e "$welcome_text"
     echo ""
 }
 

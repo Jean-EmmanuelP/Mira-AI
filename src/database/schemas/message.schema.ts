@@ -12,6 +12,7 @@ export interface IMessage extends Document {
     retrievedMemories?: number;
     patternsDetected?: number;
     goalsActive?: number;
+    isWelcome?: boolean;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -30,6 +31,7 @@ const messageSchema = new Schema<IMessage>(
       retrievedMemories: Number,
       patternsDetected: Number,
       goalsActive: Number,
+      isWelcome: Boolean,
     },
   },
   { timestamps: true }
