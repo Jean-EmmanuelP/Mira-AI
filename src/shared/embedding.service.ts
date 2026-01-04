@@ -1,21 +1,8 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { embed, embedMany } from 'ai';
+import { google } from '@ai-sdk/google';
 
 export class EmbeddingService {
-  private client: GoogleGenerativeAI;
-  private embeddingModel: any;
-
-  constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY not set');
-    }
-
-    this.client = new GoogleGenerativeAI(apiKey);
-    this.embeddingModel = this.client.getGenerativeModel({
-      model: 'text-embedding-004',
-    });
-  }
+  private embeddingModel = google.textEmbeddingModel('text-embedding-004');
 
   async embed(text: string): Promise<number[]> {
     try {
@@ -23,13 +10,10 @@ export class EmbeddingService {
         return this.zeroVector(768);
       }
 
-      const response = await this.embeddingModel.embedContent({
-        content: {
-          parts: [{ text }],
-        },
+      const { embedding } = await embed({
+        model: this.embeddingModel,
+        value: text,
       });
-
-      const embedding = response.embedding?.values;
 
       if (!embedding || embedding.length === 0) {
         console.warn('Empty embedding from Gemini, returning zero vector');
@@ -38,21 +22,38 @@ export class EmbeddingService {
 
       return embedding;
     } catch (error) {
-      console.error('Gemini Embedding Error:', error);
+      console.error('Embedding Error:', error);
       return this.zeroVector(768);
     }
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
     try {
-      const embeddings: number[][] = [];
+      const validTexts = texts.filter(t => t && t.trim().length > 0);
 
-      for (const text of texts) {
-        const embedding = await this.embed(text);
-        embeddings.push(embedding);
+      if (validTexts.length === 0) {
+        return texts.map(() => this.zeroVector(768));
       }
 
-      return embeddings;
+      const { embeddings } = await embedMany({
+        model: this.embeddingModel,
+        values: validTexts,
+      });
+
+      // Map back results, using zero vectors for originally empty texts
+      const result: number[][] = [];
+      let validIndex = 0;
+
+      for (const text of texts) {
+        if (text && text.trim().length > 0) {
+          result.push(embeddings[validIndex] || this.zeroVector(768));
+          validIndex++;
+        } else {
+          result.push(this.zeroVector(768));
+        }
+      }
+
+      return result;
     } catch (error) {
       console.error('Batch Embedding Error:', error);
       return texts.map(() => this.zeroVector(768));

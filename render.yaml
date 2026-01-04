@@ -1,0 +1,109 @@
+# Render Blueprint for Mira API
+#
+# This configuration uses Render Private Services for all databases:
+#   - MongoDB: Private Service from render-examples/mongodb
+#   - Qdrant: Private Service from qdrant/qdrant Docker image
+#   - Redis: Render's managed Redis
+#
+# All services communicate via Render's internal private network.
+
+services:
+  # ===========================================
+  # Mira API - Main Web Service
+  # ===========================================
+  - type: web
+    name: mira-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    plan: starter
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+
+      # MongoDB - Internal connection to Private Service
+      # Format: mongodb://user:password@mira-mongodb:27017/mira?authSource=admin
+      - key: MONGODB_URI
+        sync: false  # Set in dashboard with internal hostname
+
+      # Qdrant - Internal connection to Private Service
+      - key: QDRANT_HOST
+        value: mira-qdrant  # Internal hostname
+      - key: QDRANT_PORT
+        value: 6333
+
+      # Redis - Render's managed Redis
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: mira-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: mira-redis
+          property: port
+
+      # LLM API Keys - SET IN RENDER DASHBOARD
+      - key: GOOGLE_GENERATIVE_AI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+
+      # Voice API - SET IN RENDER DASHBOARD
+      - key: GRADIUM_API_KEY
+        sync: false
+
+      # Security
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRY
+        value: 7d
+
+  # ===========================================
+  # MongoDB - Private Service
+  # ===========================================
+  # Deploy from: https://github.com/render-examples/mongodb
+  # Or create manually with these settings:
+  - type: pserv
+    name: mira-mongodb
+    runtime: docker
+    repo: https://github.com/render-examples/mongodb
+    branch: master
+    plan: starter
+    disk:
+      name: mongodb-data
+      mountPath: /data/db
+      sizeGB: 10
+    envVars:
+      - key: MONGO_INITDB_ROOT_USERNAME
+        value: mira
+      - key: MONGO_INITDB_ROOT_PASSWORD
+        generateValue: true
+      - key: MONGO_INITDB_DATABASE
+        value: mira
+
+  # ===========================================
+  # Qdrant Vector DB - Private Service
+  # ===========================================
+  - type: pserv
+    name: mira-qdrant
+    runtime: docker
+    dockerImage: qdrant/qdrant:latest
+    plan: starter
+    disk:
+      name: qdrant-data
+      mountPath: /qdrant/storage
+      sizeGB: 5
+
+  # ===========================================
+  # Redis Cache - Managed Service
+  # ===========================================
+  - type: redis
+    name: mira-redis
+    plan: starter
+    ipAllowList: []

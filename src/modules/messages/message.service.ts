@@ -6,6 +6,17 @@ import { RetrievalService } from '../memory/retrieval.service';
 import { ProfileService } from '../profile/profile.service';
 import { GoalService } from '../goals/goal.service';
 import { ResponseService } from './response.service';
+import { PatternService } from '../memory/pattern.service';
+import { HumanBehaviorService, MiraNote } from '../human/human-behavior.service';
+import { EventService } from '../human/event.service';
+import { ActivityExtractionService } from '../activity/activity-extraction.service';
+import { EventMatchingService, MatchedEvent } from '../activity/event-matching.service';
+import {
+  PersonalityService,
+  MemoryWithContext,
+  GoalWithContext,
+  ConversationContext,
+} from '../../shared/personality.service';
 
 export class MessageService {
   private llmService = new LLMService();
@@ -15,11 +26,21 @@ export class MessageService {
   private profileService = new ProfileService();
   private goalService = new GoalService();
   private responseService = new ResponseService();
+  private patternService = new PatternService();
+  private personalityService = new PersonalityService();
+  private humanBehaviorService = new HumanBehaviorService();
+  private eventService = new EventService();
+  private activityService = new ActivityExtractionService();
+  private eventMatchingService = new EventMatchingService();
+
+  // Emojis for random insertion (1/3 of responses)
+  private readonly FRIENDLY_EMOJIS = ['😊', '🙂', '😄', '🤗', '✨', '💫', '🌟', '💪', '🎉', '❤️', '🫶', '👍', '🔥', '😉', '🤭'];
 
   async processMessage(
     userId: string,
     conversationId: string,
-    content: string
+    content: string,
+    emotionContext?: string | null
   ): Promise<IMessage> {
     // Step 1: Save user message
     const userMessage = await Message.create({
@@ -30,43 +51,130 @@ export class MessageService {
       metadata: {},
     });
 
-    // Step 2: Async memory & goal processing
+    // Step 2: Async memory, goal, event & activity processing (don't block response)
     setImmediate(() => {
       this.memoryService.processMessage(userId, content).catch(console.error);
       this.goalService.detectGoals(userId, content).catch(console.error);
+      this.eventService.processEvents(userId, content).catch(console.error);
+      this.activityService.processMessage(userId, content).catch(console.error);
     });
 
-    // Step 3: Analyze sentiment
-    const sentiment = await this.sentimentService.analyzeSentiment(content);
+    // Step 3: Gather all context in parallel
+    const [
+      sentiment,
+      memories,
+      summary,
+      activeGoals,
+      patterns,
+      conversationStats,
+      humanNotes,
+      relevantEvents,
+      userActivities,
+      matchedNewsEvent,
+    ] = await Promise.all([
+      this.sentimentService.analyzeSentiment(content),
+      this.retrievalService.retrieveRelevantMemories(userId, content, 8),
+      this.profileService.generateUserSummary(userId),
+      this.goalService.getActiveGoals(userId),
+      this.patternService.getAllPatterns(userId),
+      this.getConversationStats(userId),
+      this.humanBehaviorService.getAllNotes(userId),
+      this.eventService.getRelevantEvents(userId, 5),
+      this.activityService.getTopActivities(userId, 5),
+      this.eventMatchingService.getEventForResponse(userId),
+    ]);
 
-    // Step 4: Retrieve context
-    const memories = await this.retrievalService.retrieveRelevantMemories(userId, content, 5);
-    const summary = await this.profileService.generateUserSummary(userId);
+    // Step 4: Transform memories to include temporal context
+    const memoriesWithContext: MemoryWithContext[] = memories.map((m) => ({
+      fact: m.fact,
+      category: m.category,
+      daysSince: m.daysSince,
+      mentionCount: m.mentionCount,
+    }));
 
-    // Step 5: Build system prompt
-    const memoryContext = memories.map((m) => `- ${m.fact}`).join('\n');
+    // Step 5: Transform goals to include context
+    const goalsWithContext: GoalWithContext[] = activeGoals.map((g: any) => ({
+      goal: g.goal,
+      daysSinceCreated: Math.ceil(
+        (Date.now() - new Date(g.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+      ),
+      targetDate: g.targetDate,
+      progress: g.progress || 0,
+    }));
 
-    let context = '';
-    if (summary) {
-      context += `About the user:\n${summary}\n\n`;
+    // Step 6: Build conversation context
+    const context: ConversationContext = {
+      userSummary: summary || undefined,
+      memories: memoriesWithContext,
+      goals: goalsWithContext,
+      currentSentiment: sentiment,
+      conversationCount: conversationStats.totalConversations,
+      lastInteraction: conversationStats.lastInteraction,
+    };
+
+    // Step 7: Generate system prompt with Mira's personality
+    let systemPrompt = this.personalityService.generateSystemPrompt(context);
+
+    // Step 8: Add detected patterns if any
+    if (patterns.length > 0) {
+      systemPrompt += '\n\n' + this.patternService.formatPatternsForPrompt(patterns);
     }
-    if (memoryContext) {
-      context += `What you remember:\n${memoryContext}`;
+
+    // Step 9: Add relevant events (episodic memory)
+    if (relevantEvents.length > 0) {
+      systemPrompt += '\n\n### Événements Importants\n';
+      for (const event of relevantEvents) {
+        const eventDate = event.date
+          ? this.formatEventDate(event.date, event.dateType)
+          : '';
+        const outcome = event.outcome ? ` [${event.outcome}]` : '';
+        systemPrompt += `- ${event.title}${eventDate}${outcome}\n`;
+      }
     }
 
-    const systemPrompt = `You are Mira, an AI companion who genuinely remembers and cares.
+    // Step 10: Add human behavior notes (proactive follow-ups)
+    if (humanNotes.length > 0) {
+      systemPrompt += '\n\n### Notes Mira (intégrer naturellement si pertinent)\n';
+      // Only include top 2 most important notes
+      const topNotes = humanNotes.slice(0, 2);
+      for (const note of topNotes) {
+        systemPrompt += `- [${note.type}] ${note.message}\n`;
+      }
+    }
 
-${context}
+    // Step 10.5: Add user activities/interests
+    if (userActivities.length > 0) {
+      systemPrompt += '\n\n### Intérêts & Activités de l\'utilisateur\n';
+      const activityList = userActivities.map(a => a.name).join(', ');
+      systemPrompt += `Centres d'intérêt: ${activityList}\n`;
+    }
 
-Respond warmly and personally. Show you understand them. Keep responses concise but meaningful.`;
+    // Step 10.6: Add matched news event if relevant
+    if (matchedNewsEvent) {
+      systemPrompt += '\n\n### Actualité Pertinente (mentionner naturellement si approprié)\n';
+      systemPrompt += `- Titre: ${matchedNewsEvent.title}\n`;
+      if (matchedNewsEvent.description) {
+        systemPrompt += `- Résumé: ${matchedNewsEvent.description}\n`;
+      }
+      systemPrompt += `- Lien: ${matchedNewsEvent.url}\n`;
+      systemPrompt += `Note: Ne mentionne cette actualité que si elle s'intègre naturellement à la conversation. Utilise des transitions comme "Tiens, au fait..." ou "Ça me fait penser..."\n`;
+    }
 
-    // Step 6: Generate response
+    // Step 10.7: Add voice emotion context if available
+    if (emotionContext) {
+      systemPrompt += '\n\n' + emotionContext;
+    }
+
+    // Step 11: Generate response
     let response = await this.llmService.generate(systemPrompt, content);
 
-    // Step 7: Refine based on sentiment
+    // Step 12: Refine based on sentiment
     response = await this.responseService.refineResponse(response, sentiment);
 
-    // Step 8: Save response
+    // Step 12.5: Add random emoji (1/3 of responses)
+    response = this.maybeAddEmoji(response);
+
+    // Step 13: Save response with metadata
     const assistantMessage = await Message.create({
       userId,
       conversationId,
@@ -75,10 +183,112 @@ Respond warmly and personally. Show you understand them. Keep responses concise 
       metadata: {
         sentiment,
         retrievedMemories: memories.length,
+        patternsDetected: patterns.length,
+        goalsActive: activeGoals.length,
       },
     });
 
+    // Step 14: Update message with sentiment for pattern detection
+    await Message.updateOne(
+      { _id: userMessage._id },
+      { $set: { 'metadata.sentiment': sentiment } }
+    );
+
+    // Step 15: Update emotional profile (async)
+    setImmediate(() => {
+      const topics = this.extractTopics(content);
+      this.humanBehaviorService
+        .updateEmotionalProfile(userId, sentiment, topics)
+        .catch(console.error);
+
+      // Mark news event as mentioned if it was used
+      if (matchedNewsEvent) {
+        this.eventMatchingService
+          .markEventAsMentioned(userId, matchedNewsEvent._id.toString())
+          .catch(console.error);
+      }
+    });
+
     return assistantMessage;
+  }
+
+  /**
+   * Format event date for display
+   */
+  private formatEventDate(date: Date, dateType: string): string {
+    const now = new Date();
+    const eventDate = new Date(date);
+    const diffDays = Math.ceil(
+      (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (dateType === 'past') {
+      if (diffDays === 0) return ' (aujourd\'hui)';
+      if (diffDays === -1) return ' (hier)';
+      if (diffDays > -7) return ` (il y a ${Math.abs(diffDays)} jours)`;
+      return ` (${eventDate.toLocaleDateString('fr-FR')})`;
+    }
+
+    if (dateType === 'future') {
+      if (diffDays === 0) return ' (AUJOURD\'HUI!)';
+      if (diffDays === 1) return ' (demain!)';
+      if (diffDays <= 7) return ` (dans ${diffDays} jours)`;
+      return ` (le ${eventDate.toLocaleDateString('fr-FR')})`;
+    }
+
+    return '';
+  }
+
+  /**
+   * Extract topics from message for emotional profiling
+   */
+  private extractTopics(content: string): string[] {
+    const topics: string[] = [];
+    const contentLower = content.toLowerCase();
+
+    const topicKeywords: Record<string, string[]> = {
+      work: ['travail', 'job', 'boulot', 'boss', 'collègue', 'bureau', 'réunion', 'projet'],
+      family: ['famille', 'mère', 'père', 'frère', 'soeur', 'parents', 'enfant'],
+      health: ['santé', 'malade', 'médecin', 'hôpital', 'douleur', 'fatigue', 'sport'],
+      relationship: ['ami', 'copain', 'copine', 'couple', 'relation', 'rencard'],
+      money: ['argent', 'salaire', 'dette', 'acheter', 'payer', 'budget'],
+      education: ['école', 'université', 'cours', 'examen', 'étudier', 'diplôme'],
+    };
+
+    for (const [topic, keywords] of Object.entries(topicKeywords)) {
+      if (keywords.some((k) => contentLower.includes(k))) {
+        topics.push(topic);
+      }
+    }
+
+    return topics;
+  }
+
+  /**
+   * Get conversation statistics for a user
+   */
+  private async getConversationStats(
+    userId: string
+  ): Promise<{ totalConversations: number; lastInteraction: Date | undefined }> {
+    const stats = await Message.aggregate([
+      { $match: { userId, role: 'user' } },
+      {
+        $group: {
+          _id: null,
+          totalConversations: { $sum: 1 },
+          lastInteraction: { $max: '$createdAt' },
+        },
+      },
+    ]);
+
+    if (stats.length === 0) {
+      return { totalConversations: 0, lastInteraction: undefined };
+    }
+
+    return {
+      totalConversations: stats[0].totalConversations,
+      lastInteraction: stats[0].lastInteraction,
+    };
   }
 
   async getConversation(userId: string, conversationId: string): Promise<IMessage[]> {
@@ -86,5 +296,38 @@ Respond warmly and personally. Show you understand them. Keep responses concise 
       userId,
       conversationId,
     }).sort({ createdAt: 1 });
+  }
+
+  /**
+   * Maybe add an emoji to the response (1/3 chance)
+   * Adds emoji at the end of the response, or at a natural break point
+   */
+  private maybeAddEmoji(response: string): string {
+    // Only add emoji 1/3 of the time
+    if (Math.random() > 0.33) {
+      return response;
+    }
+
+    // Skip if response already has emojis
+    const emojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u;
+    if (emojiRegex.test(response)) {
+      return response;
+    }
+
+    // Pick a random emoji
+    const emoji = this.FRIENDLY_EMOJIS[Math.floor(Math.random() * this.FRIENDLY_EMOJIS.length)];
+
+    // Find a good insertion point
+    const trimmed = response.trim();
+
+    // If ends with punctuation, insert before it
+    const lastChar = trimmed[trimmed.length - 1];
+    if (['!', '.', '?', '...'].some(p => trimmed.endsWith(p))) {
+      // Add space + emoji at end
+      return trimmed + ' ' + emoji;
+    }
+
+    // Otherwise just append
+    return trimmed + ' ' + emoji;
   }
 }

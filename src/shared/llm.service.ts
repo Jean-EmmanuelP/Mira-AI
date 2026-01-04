@@ -1,47 +1,84 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateText } from 'ai';
+import { google } from '@ai-sdk/google';
+import { anthropic } from '@ai-sdk/anthropic';
+import { mistral } from '@ai-sdk/mistral';
+
+interface ModelConfig {
+  name: string;
+  model: any;
+  enabled: boolean;
+}
 
 export class LLMService {
-  private client: GoogleGenerativeAI;
-  private model: any;
+  private models: ModelConfig[];
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
+    this.models = this.initializeModels();
 
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY not set in environment');
+    const enabledModels = this.models.filter(m => m.enabled).map(m => m.name);
+    if (enabledModels.length === 0) {
+      throw new Error('No LLM API keys configured. Set at least one of: GOOGLE_GENERATIVE_AI_API_KEY, ANTHROPIC_API_KEY, MISTRAL_API_KEY');
     }
 
-    this.client = new GoogleGenerativeAI(apiKey);
-    this.model = this.client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    console.log(`🤖 LLM Models enabled: ${enabledModels.join(', ')}`);
+  }
+
+  private initializeModels(): ModelConfig[] {
+    return [
+      {
+        name: 'Gemini',
+        model: google('gemini-2.0-flash'),
+        enabled: !!process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+      },
+      {
+        name: 'Claude',
+        model: anthropic('claude-3-5-haiku-latest'),
+        enabled: !!process.env.ANTHROPIC_API_KEY,
+      },
+      {
+        name: 'Mistral',
+        model: mistral('mistral-large-latest'),
+        enabled: !!process.env.MISTRAL_API_KEY,
+      },
+    ];
   }
 
   async generate(systemPrompt: string, userMessage: string): Promise<string> {
-    try {
-      const fullPrompt = systemPrompt
-        ? `System: ${systemPrompt}\n\nUser: ${userMessage}`
-        : userMessage;
+    const enabledModels = this.models.filter(m => m.enabled);
+    let lastError: Error | null = null;
 
-      const response = await this.model.generateContent(fullPrompt);
-      const result = response.response;
+    for (const { name, model } of enabledModels) {
+      try {
+        const { text } = await generateText({
+          model,
+          system: systemPrompt || undefined,
+          prompt: userMessage,
+        });
 
-      if (!result.text()) {
-        throw new Error('No text response from Gemini');
+        if (!text) {
+          throw new Error(`No text response from ${name}`);
+        }
+
+        if (enabledModels[0].name !== name) {
+          console.log(`✅ Used ${name} (fallback)`);
+        }
+
+        return text;
+      } catch (error: any) {
+        console.warn(`${name} failed:`, error.message);
+        lastError = error;
       }
-
-      return result.text();
-    } catch (error) {
-      console.error('Gemini Error:', error);
-      throw error;
     }
+
+    console.error('All configured models failed');
+    throw lastError || new Error('All LLM models failed');
   }
 
   async extract(prompt: string): Promise<any> {
-    const fullPrompt = `You are a JSON extraction expert. Return valid JSON only, nothing else.
-
-${prompt}`;
+    const systemPrompt = 'You are a JSON extraction expert. Return valid JSON only, nothing else.';
 
     try {
-      const response = await this.generate('', fullPrompt);
+      const response = await this.generate(systemPrompt, prompt);
 
       const jsonMatch = response.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -50,16 +87,14 @@ ${prompt}`;
 
       return JSON.parse(response);
     } catch (error) {
-      console.warn('Failed to parse JSON from Gemini:', error);
+      console.warn('Failed to parse JSON:', error);
       return {};
     }
   }
 
   async classify(prompt: string): Promise<string> {
-    const fullPrompt = `Classify with a single word only: ${prompt}`;
-
     try {
-      const response = await this.generate('', fullPrompt);
+      const response = await this.generate('', `Classify with a single word only: ${prompt}`);
       return response.split('\n')[0].trim().toLowerCase().split(/[,\s]/)[0];
     } catch {
       return 'neutral';

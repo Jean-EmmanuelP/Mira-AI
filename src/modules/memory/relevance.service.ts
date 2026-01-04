@@ -3,6 +3,9 @@ export interface ScoredMemory {
   fact: string;
   score: number;
   reason: string;
+  category: string;
+  daysSince: number;
+  mentionCount: number;
 }
 
 export class RelevanceService {

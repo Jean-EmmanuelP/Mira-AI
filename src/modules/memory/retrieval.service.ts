@@ -36,6 +36,9 @@ export class RetrievalService {
           fact: m.fact,
           score: 0.5,
           reason: 'recent',
+          category: m.category,
+          daysSince: this.relevance.daysBetween(new Date(m.lastMentioned)),
+          mentionCount: m.mentionCount,
         }));
       }
 
@@ -65,6 +68,9 @@ export class RetrievalService {
           fact: memory.fact,
           score,
           reason: `vector:${(vectorSim * 100).toFixed(0)}%`,
+          category: memory.category,
+          daysSince,
+          mentionCount: memory.mentionCount,
         };
       });
 

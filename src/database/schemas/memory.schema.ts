@@ -20,7 +20,7 @@ const memorySchema = new Schema<ISemanticMemory>(
     fact: { type: String, required: true },
     category: {
       type: String,
-      enum: ['personal', 'professional', 'health', 'goals', 'preferences', 'relationship'],
+      enum: ['personal', 'professional', 'health', 'goals', 'preferences', 'relationship', 'emotional'],
       required: true,
     },
     confidence: { type: Number, min: 0, max: 1, default: 0.5 },

@@ -10,6 +10,8 @@ export interface IMessage extends Document {
     topics?: string[];
     entities?: string[];
     retrievedMemories?: number;
+    patternsDetected?: number;
+    goalsActive?: number;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -26,6 +28,8 @@ const messageSchema = new Schema<IMessage>(
       topics: [String],
       entities: [String],
       retrievedMemories: Number,
+      patternsDetected: Number,
+      goalsActive: Number,
     },
   },
   { timestamps: true }
