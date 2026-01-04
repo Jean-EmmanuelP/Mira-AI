@@ -966,10 +966,17 @@ send_audio() {
 
     echo -e "${GRAY}$(L sending_audio)${NC}"
 
+    # Debug: check USER_ID
+    if [ -z "$USER_ID" ]; then
+        echo -e "${RED}Error: USER_ID is empty${NC}"
+        return 1
+    fi
+
+    # Fields MUST come BEFORE the file for Fastify multipart to parse them correctly
     local response=$(curl -s -X POST "$SERVER_URL/chat" \
-        -F "audio=@$audio_file;type=audio/wav" \
         -F "userId=$USER_ID" \
         -F "lang=$LANG_MODE" \
+        -F "audio=@$audio_file;type=audio/wav" \
         2>&1)
 
     # Debug: show raw response if it looks like an error
