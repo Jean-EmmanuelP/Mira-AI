@@ -208,6 +208,21 @@ Mira uses the Vercel AI SDK with dynamic model selection:
 
 Only models with configured API keys are enabled. If you only set `ANTHROPIC_API_KEY`, Claude becomes the primary (and only) model.
 
+## Postman Collection
+
+Import `Mira-API.postman_collection.json` into Postman to test all endpoints:
+
+1. Open Postman
+2. Click "Import" → select `Mira-API.postman_collection.json`
+3. The collection includes:
+   - **Health & System**: Health check, API test, stats
+   - **Chat**: Numbered sequence to test memory (1. Introduce yourself → 2. Test recall → 3. Goal follow-up)
+   - **Memory**: Get memories by user or category
+   - **Profile**: Get generated user profile
+   - **User Management**: List users, delete user data
+
+Variables are pre-configured: `{{baseUrl}}` = `http://localhost:3000`, `{{userId}}` = `test-user`
+
 ## Quick Start
 
 ### Prerequisites
