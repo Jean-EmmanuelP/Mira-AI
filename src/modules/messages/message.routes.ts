@@ -3,6 +3,7 @@ import { MessageController } from './message.controller';
 import { ReengagementService } from '../human/reengagement.service';
 import { LLMService } from '../../shared/llm.service';
 import { Message } from '../../database/schemas/message.schema';
+import { timeService } from '../../shared/time.service';
 
 let reengagementService: ReengagementService | null = null;
 let llmService: LLMService | null = null;
@@ -81,35 +82,51 @@ export async function messageRoutes(app: FastifyInstance) {
       let greetingPrompt: string;
 
       if (messageCount === 0) {
-        // New user - welcome message
+        // New user - welcome message with time context
+        const timeCtx = timeService.getTimeContext();
+
         if (lang === 'en') {
           greetingPrompt = `You are Mira, an authentic virtual friend.
 This is the FIRST time you're talking to this person.
+
+CURRENT TIME: ${timeCtx.formattedTime} (${timeCtx.periodEn}), ${timeCtx.dayOfWeek}${timeCtx.isWeekend ? ' (weekend)' : ''}
+TIME CONTEXT: ${timeCtx.contextHint}
+
 Generate ONE short and natural welcome message (1-2 sentences max).
 You must:
 - Briefly introduce yourself (just your first name)
-- Ask what their name is OR how they're doing
+- Reference the time of day naturally (morning, evening, late night, weekend vibe, etc.)
+- Ask what their name is OR a time-appropriate question
 - Be warm but not overly enthusiastic
 
-Examples of good messages:
-- "Hey! I'm Mira. What's your name?"
-- "Hi there! I'm Mira. How are you doing today?"
-- "Hey hey! Mira here. What should I call you?"
+Examples based on time:
+- Morning: "Hey! I'm Mira. Starting your day? What's your name?"
+- Afternoon: "Hi! Mira here. Taking a break? What should I call you?"
+- Evening: "Hey! I'm Mira. Winding down for the day? What's your name?"
+- Late night: "Hey! I'm Mira. Can't sleep? What brings you here?"
+- Weekend: "Hey! I'm Mira. Enjoying the weekend? What's your name?"
 
 Generate ONLY the message, no quotes or explanations.`;
         } else {
           greetingPrompt = `Tu es Mira, une amie virtuelle authentique.
 C'est la PREMIÈRE fois que tu parles avec cette personne.
+
+HEURE ACTUELLE: ${timeCtx.formattedTime} (${timeCtx.periodFr}), ${timeCtx.dayOfWeekFr}${timeCtx.isWeekend ? ' (weekend)' : ''}
+CONTEXTE: ${timeCtx.contextHintFr}
+
 Génère UN SEUL message de bienvenue court et naturel (1-2 phrases max).
 Tu dois :
 - Te présenter brièvement (juste ton prénom)
-- Demander comment la personne s'appelle OU comment elle va
+- Mentionner naturellement le moment de la journée (matin, soir, tard la nuit, weekend, etc.)
+- Demander comment la personne s'appelle OU une question adaptée au moment
 - Être chaleureuse mais pas trop enthousiaste
 
-Exemples de bons messages :
-- "Salut ! Moi c'est Mira. Et toi, tu t'appelles comment ?"
-- "Hey ! Je suis Mira. Comment tu vas aujourd'hui ?"
-- "Coucou ! Mira ici. C'est quoi ton petit nom ?"
+Exemples selon l'heure :
+- Matin: "Salut ! Moi c'est Mira. Bien dormi ? Et toi, c'est quoi ton prénom ?"
+- Après-midi: "Hey ! Je suis Mira. Pause café ? Tu t'appelles comment ?"
+- Soir: "Coucou ! Mira ici. Comment se passe ta soirée ? C'est quoi ton petit nom ?"
+- Tard la nuit: "Hey ! Moi c'est Mira. Tu dors pas ? Comment tu t'appelles ?"
+- Weekend: "Salut ! Je suis Mira. Bon weekend jusqu'ici ? Et toi, tu t'appelles ?"
 
 Génère UNIQUEMENT le message, sans guillemets ni explication.`;
         }
@@ -126,42 +143,48 @@ Génère UNIQUEMENT le message, sans guillemets ni explication.`;
         const hoursSince = Math.floor((Date.now() - lastMessageTime.getTime()) / (1000 * 60 * 60));
         const minutesSince = Math.floor((Date.now() - lastMessageTime.getTime()) / (1000 * 60));
 
-        let timeContextFr = '';
-        let timeContextEn = '';
+        let absenceContextFr = '';
+        let absenceContextEn = '';
         if (minutesSince < 5) {
-          timeContextFr = "La personne vient tout juste de revenir (moins de 5 minutes).";
-          timeContextEn = "The person just came back (less than 5 minutes ago).";
+          absenceContextFr = "La personne vient tout juste de revenir (moins de 5 minutes).";
+          absenceContextEn = "The person just came back (less than 5 minutes ago).";
         } else if (minutesSince < 60) {
-          timeContextFr = `La personne revient après ${minutesSince} minutes.`;
-          timeContextEn = `The person is back after ${minutesSince} minutes.`;
+          absenceContextFr = `La personne revient après ${minutesSince} minutes.`;
+          absenceContextEn = `The person is back after ${minutesSince} minutes.`;
         } else if (hoursSince < 24) {
-          timeContextFr = `La personne revient après ${hoursSince} heure${hoursSince > 1 ? 's' : ''}.`;
-          timeContextEn = `The person is back after ${hoursSince} hour${hoursSince > 1 ? 's' : ''}.`;
+          absenceContextFr = `La personne revient après ${hoursSince} heure${hoursSince > 1 ? 's' : ''}.`;
+          absenceContextEn = `The person is back after ${hoursSince} hour${hoursSince > 1 ? 's' : ''}.`;
         } else {
           const daysSince = Math.floor(hoursSince / 24);
-          timeContextFr = `La personne revient après ${daysSince} jour${daysSince > 1 ? 's' : ''} d'absence.`;
-          timeContextEn = `The person is back after ${daysSince} day${daysSince > 1 ? 's' : ''} away.`;
+          absenceContextFr = `La personne revient après ${daysSince} jour${daysSince > 1 ? 's' : ''} d'absence.`;
+          absenceContextEn = `The person is back after ${daysSince} day${daysSince > 1 ? 's' : ''} away.`;
         }
+
+        // Get current time context
+        const timeCtx = timeService.getTimeContext();
 
         if (lang === 'en') {
           greetingPrompt = `You are Mira, an authentic virtual friend.
 You already know this person (you've talked ${messageCount} times).
-${timeContextEn}
+${absenceContextEn}
+
+CURRENT TIME: ${timeCtx.formattedTime} (${timeCtx.periodEn}), ${timeCtx.dayOfWeek}${timeCtx.isWeekend ? ' (weekend)' : ''}
+TIME CONTEXT: ${timeCtx.contextHint}
 
 ### Last conversation:
 ${historyForPrompt}
 
 Generate ONE short and CONTEXTUAL welcome message (1-2 sentences max).
 - Reference something from the last conversation if relevant
-- OR ask about a specific topic you discussed
+- OR use the current time naturally (morning, evening, weekend, late night)
 - Be natural, like a friend picking up a conversation
 - Do NOT introduce yourself again (you already know each other)
-- Do NOT say generic "how are you"
 
-GOOD examples (contextual):
+GOOD examples (contextual + time-aware):
 - "Hey you're back! So, did you make progress on that project?" (if talking about a project)
-- "Hey! How did that thing go?" (if waiting on something)
-- "Was just thinking about what we were talking about... Any updates?"
+- "Up late too? How did that thing go?" (late night)
+- "Sunday vibes! Did you figure out that issue?" (weekend)
+- "Morning! Still thinking about what you said yesterday..."
 
 BAD examples (too generic):
 - "Hi! How are you?"
@@ -172,22 +195,25 @@ Generate ONLY the message, no quotes or explanations.`;
         } else {
           greetingPrompt = `Tu es Mira, une amie virtuelle authentique.
 Tu connais déjà cette personne (vous avez parlé ${messageCount} fois).
-${timeContextFr}
+${absenceContextFr}
+
+HEURE ACTUELLE: ${timeCtx.formattedTime} (${timeCtx.periodFr}), ${timeCtx.dayOfWeekFr}${timeCtx.isWeekend ? ' (weekend)' : ''}
+CONTEXTE TEMPOREL: ${timeCtx.contextHintFr}
 
 ### Dernière conversation:
 ${historyForPrompt}
 
 Génère UN message d'accueil court et CONTEXTUEL (1-2 phrases max).
 - Fais référence à quelque chose de la dernière conversation si pertinent
-- OU demande des nouvelles d'un sujet spécifique qu'on a abordé
+- OU utilise l'heure actuelle naturellement (matin, soir, weekend, tard la nuit)
 - Sois naturelle, comme une amie qui reprend une conversation
 - Ne te re-présente PAS (tu te connais déjà)
-- Ne dis PAS "comment tu vas" de façon générique
 
-Exemples BONS (contextuels):
+Exemples BONS (contextuels + temporels):
 - "Ah te revoilà ! Alors, t'as avancé sur ton projet ?" (si on parlait d'un projet)
-- "Hey ! Comment ça s'est passé finalement ?" (si on attendait quelque chose)
-- "Tiens, je pensais à ce qu'on disait... T'en es où ?"
+- "Toi aussi tu dors pas ? Comment ça s'est passé finalement ?" (tard la nuit)
+- "Bon dimanche ! T'as réglé ce truc dont tu parlais ?" (weekend)
+- "Salut ! Je pensais encore à ce que tu disais hier..."
 
 Exemples MAUVAIS (trop génériques):
 - "Salut ! Comment tu vas ?"
