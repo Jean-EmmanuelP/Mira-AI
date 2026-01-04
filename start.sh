@@ -1226,10 +1226,11 @@ chat() {
         fi
 
         if [ "$message" = "/audio" ] || [ "$message" = "/a" ]; then
-            record_audio
-            if [ $? -eq 0 ] && [ -n "$AUDIO_RESULT" ]; then
-                send_audio "$AUDIO_RESULT"
-            fi
+            echo -e "${YELLOW}⚠️  Audio mode temporarily disabled - use text input${NC}"
+            # record_audio
+            # if [ $? -eq 0 ] && [ -n "$AUDIO_RESULT" ]; then
+            #     send_audio "$AUDIO_RESULT"
+            # fi
             continue
         fi
 
