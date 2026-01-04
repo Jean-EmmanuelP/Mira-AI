@@ -897,8 +897,8 @@ record_audio() {
     echo -e "${YELLOW}   $(L press_enter_stop)${NC}"
     echo ""
 
-    # Start recording in background
-    rec -q "$audio_file" rate 16k channels 1 2>/dev/null &
+    # Start recording in background - Gradium requires 24kHz sample rate
+    rec -q "$audio_file" rate 24k channels 1 2>/dev/null &
     local rec_pid=$!
 
     # Show recording indicator - wait for Enter key to stop
@@ -934,14 +934,17 @@ record_audio() {
 
     if [ -f "$audio_file" ] && [ -s "$audio_file" ]; then
         local file_size=$(stat -f%z "$audio_file" 2>/dev/null || stat -c%s "$audio_file" 2>/dev/null)
-        if [ "$file_size" -gt 1000 ]; then
-            echo -e "${GREEN}✓ $(L audio_recorded)${NC}"
+        # WAV at 24kHz mono 16-bit = ~48KB per second. Minimum 1 second = 48000 bytes
+        local min_size=48000
+        if [ "$file_size" -gt "$min_size" ]; then
+            local duration_secs=$((file_size / 48000))
+            echo -e "${GREEN}✓ $(L audio_recorded) (${duration_secs}s, ${file_size} bytes)${NC}"
             echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
             echo ""
             AUDIO_RESULT="$audio_file"
             return 0
         else
-            echo -e "${RED}✗ $(L recording_too_short)${NC}"
+            echo -e "${RED}✗ $(L recording_too_short) (${file_size} bytes < ${min_size})${NC}"
             echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
             echo ""
             rm -f "$audio_file" 2>/dev/null

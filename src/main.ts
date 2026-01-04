@@ -178,15 +178,21 @@ async function registerRoutes() {
       }
 
       try {
+        const startTime = Date.now();
+        console.log(`🎤 Audio received, processing...`);
+
         const audioBuffer = await data.toBuffer();
         const audioBase64 = audioBuffer.toString('base64');
         const inputFormat = data.mimetype?.includes('wav') ? 'wav' : 'pcm';
+        console.log(`📦 Audio buffer: ${audioBuffer.length} bytes, format: ${inputFormat}`);
 
         // Start STT and emotion analysis in parallel
+        console.log(`⏳ Starting STT...`);
         const [transcription, emotionAnalysis] = await Promise.all([
           gradiumService.speechToText(audioBase64, inputFormat),
           humeService.isEnabled() ? humeService.analyzeEmotionsFromBuffer(audioBuffer) : Promise.resolve(null)
         ]);
+        console.log(`✅ STT completed in ${Date.now() - startTime}ms`);
 
         messageContent = transcription;
         isAudioInput = true;
@@ -220,7 +226,10 @@ async function registerRoutes() {
     }
 
     // Process the message with emotion context and language if available
+    const llmStartTime = Date.now();
+    console.log(`🧠 Processing message...`);
     const response = await service.processMessage(userId, conversationId, messageContent, emotionContext, lang);
+    console.log(`✅ LLM response in ${Date.now() - llmStartTime}ms`);
 
     // Calculate realistic typing delay based on response length
     // Average typing speed: 38-40 words per minute = ~1.5 seconds per word
@@ -248,8 +257,10 @@ async function registerRoutes() {
 
     if (shouldSendAudio) {
       try {
+        const ttsStartTime = Date.now();
+        console.log(`🔊 Generating TTS...`);
         audioResponse = await gradiumService.textToSpeech(response.content);
-        console.log(`🔊 TTS generated for response (user sent audio)`);
+        console.log(`✅ TTS completed in ${Date.now() - ttsStartTime}ms`);
       } catch (error) {
         console.error('TTS error:', error);
         // Continue without audio, not a fatal error
