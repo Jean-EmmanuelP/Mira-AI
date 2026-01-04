@@ -162,21 +162,25 @@ export class MessageService {
       systemPrompt += '\n\n' + this.patternService.formatPatternsForPrompt(patterns);
     }
 
-    // Step 9: Add relevant events (episodic memory)
+    // Step 9: Add relevant events (episodic memory) - LANGUAGE AWARE
     if (relevantEvents.length > 0) {
-      systemPrompt += '\n\n### Événements Importants\n';
+      const eventsHeader = detectedLang === 'en' ? '### Important Events' : '### Événements Importants';
+      systemPrompt += `\n\n${eventsHeader}\n`;
       for (const event of relevantEvents) {
         const eventDate = event.date
-          ? this.formatEventDate(event.date, event.dateType)
+          ? this.formatEventDate(event.date, event.dateType, detectedLang)
           : '';
         const outcome = event.outcome ? ` [${event.outcome}]` : '';
         systemPrompt += `- ${event.title}${eventDate}${outcome}\n`;
       }
     }
 
-    // Step 10: Add human behavior notes (proactive follow-ups)
+    // Step 10: Add human behavior notes (proactive follow-ups) - LANGUAGE AWARE
     if (humanNotes.length > 0) {
-      systemPrompt += '\n\n### Notes Mira (intégrer naturellement si pertinent)\n';
+      const notesHeader = detectedLang === 'en'
+        ? '### Mira Notes (integrate naturally if relevant)'
+        : '### Notes Mira (intégrer naturellement si pertinent)';
+      systemPrompt += `\n\n${notesHeader}\n`;
       // Only include top 2 most important notes
       const topNotes = humanNotes.slice(0, 2);
       for (const note of topNotes) {
@@ -184,22 +188,36 @@ export class MessageService {
       }
     }
 
-    // Step 10.5: Add user activities/interests
+    // Step 10.5: Add user activities/interests - LANGUAGE AWARE
     if (userActivities.length > 0) {
-      systemPrompt += '\n\n### Intérêts & Activités de l\'utilisateur\n';
+      const activitiesHeader = detectedLang === 'en'
+        ? "### User's Interests & Activities"
+        : "### Intérêts & Activités de l'utilisateur";
+      const interestsLabel = detectedLang === 'en' ? 'Interests' : "Centres d'intérêt";
+      systemPrompt += `\n\n${activitiesHeader}\n`;
       const activityList = userActivities.map(a => a.name).join(', ');
-      systemPrompt += `Centres d'intérêt: ${activityList}\n`;
+      systemPrompt += `${interestsLabel}: ${activityList}\n`;
     }
 
-    // Step 10.6: Add matched news event if relevant
+    // Step 10.6: Add matched news event if relevant - LANGUAGE AWARE
     if (matchedNewsEvent) {
-      systemPrompt += '\n\n### Actualité Pertinente (mentionner naturellement si approprié)\n';
-      systemPrompt += `- Titre: ${matchedNewsEvent.title}\n`;
-      if (matchedNewsEvent.description) {
-        systemPrompt += `- Résumé: ${matchedNewsEvent.description}\n`;
+      if (detectedLang === 'en') {
+        systemPrompt += '\n\n### Relevant News (mention naturally if appropriate)\n';
+        systemPrompt += `- Title: ${matchedNewsEvent.title}\n`;
+        if (matchedNewsEvent.description) {
+          systemPrompt += `- Summary: ${matchedNewsEvent.description}\n`;
+        }
+        systemPrompt += `- Link: ${matchedNewsEvent.url}\n`;
+        systemPrompt += `Note: Only mention this news if it fits naturally into the conversation. Use transitions like "By the way..." or "That reminds me..."\n`;
+      } else {
+        systemPrompt += '\n\n### Actualité Pertinente (mentionner naturellement si approprié)\n';
+        systemPrompt += `- Titre: ${matchedNewsEvent.title}\n`;
+        if (matchedNewsEvent.description) {
+          systemPrompt += `- Résumé: ${matchedNewsEvent.description}\n`;
+        }
+        systemPrompt += `- Lien: ${matchedNewsEvent.url}\n`;
+        systemPrompt += `Note: Ne mentionne cette actualité que si elle s'intègre naturellement à la conversation. Utilise des transitions comme "Tiens, au fait..." ou "Ça me fait penser..."\n`;
       }
-      systemPrompt += `- Lien: ${matchedNewsEvent.url}\n`;
-      systemPrompt += `Note: Ne mentionne cette actualité que si elle s'intègre naturellement à la conversation. Utilise des transitions comme "Tiens, au fait..." ou "Ça me fait penser..."\n`;
     }
 
     // Step 10.7: Add voice emotion context if available
@@ -413,27 +431,43 @@ Respond naturally in 1-2 sentences, like a friend texting on WhatsApp:`;
   }
 
   /**
-   * Format event date for display
+   * Format event date for display - LANGUAGE AWARE
    */
-  private formatEventDate(date: Date, dateType: string): string {
+  private formatEventDate(date: Date, dateType: string, lang: 'en' | 'fr' = 'fr'): string {
     const now = new Date();
     const eventDate = new Date(date);
     const diffDays = Math.ceil(
       (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    if (dateType === 'past') {
-      if (diffDays === 0) return ' (aujourd\'hui)';
-      if (diffDays === -1) return ' (hier)';
-      if (diffDays > -7) return ` (il y a ${Math.abs(diffDays)} jours)`;
-      return ` (${eventDate.toLocaleDateString('fr-FR')})`;
-    }
+    if (lang === 'en') {
+      if (dateType === 'past') {
+        if (diffDays === 0) return ' (today)';
+        if (diffDays === -1) return ' (yesterday)';
+        if (diffDays > -7) return ` (${Math.abs(diffDays)} days ago)`;
+        return ` (${eventDate.toLocaleDateString('en-US')})`;
+      }
 
-    if (dateType === 'future') {
-      if (diffDays === 0) return ' (AUJOURD\'HUI!)';
-      if (diffDays === 1) return ' (demain!)';
-      if (diffDays <= 7) return ` (dans ${diffDays} jours)`;
-      return ` (le ${eventDate.toLocaleDateString('fr-FR')})`;
+      if (dateType === 'future') {
+        if (diffDays === 0) return ' (TODAY!)';
+        if (diffDays === 1) return ' (tomorrow!)';
+        if (diffDays <= 7) return ` (in ${diffDays} days)`;
+        return ` (on ${eventDate.toLocaleDateString('en-US')})`;
+      }
+    } else {
+      if (dateType === 'past') {
+        if (diffDays === 0) return " (aujourd'hui)";
+        if (diffDays === -1) return ' (hier)';
+        if (diffDays > -7) return ` (il y a ${Math.abs(diffDays)} jours)`;
+        return ` (${eventDate.toLocaleDateString('fr-FR')})`;
+      }
+
+      if (dateType === 'future') {
+        if (diffDays === 0) return " (AUJOURD'HUI!)";
+        if (diffDays === 1) return ' (demain!)';
+        if (diffDays <= 7) return ` (dans ${diffDays} jours)`;
+        return ` (le ${eventDate.toLocaleDateString('fr-FR')})`;
+      }
     }
 
     return '';
@@ -1529,6 +1563,7 @@ Generate a better response (1-2 sentences, natural, NO QUESTION if too many rece
   /**
    * Build memory recall context when user asks about previous conversation
    * Detects patterns like "tu te rappelles?" and extracts facts from recent messages
+   * Also detects confirmations after Mira asks about listing memories
    */
   private buildMemoryRecallContext(
     userMessage: string,
@@ -1536,7 +1571,7 @@ Generate a better response (1-2 sentences, natural, NO QUESTION if too many rece
     memories: { fact: string; category: string; daysSince: number; score: number }[],
     lang: 'en' | 'fr'
   ): string | null {
-    const messageLower = userMessage.toLowerCase();
+    const messageLower = userMessage.toLowerCase().trim();
 
     // Patterns that indicate user is asking Mira to remember something
     const memoryRecallPatternsFr = [
@@ -1566,10 +1601,92 @@ Generate a better response (1-2 sentences, natural, NO QUESTION if too many rece
       /what was my (work|project|thing)/i,
       /you (still )?know what/i,
       /remember when/i,
+      /what('s| is) my goal/i,
+      /what are my goals/i,
+      /my goals?/i,
+      /my work/i,
+      /my ambitions?/i,
     ];
 
     const patterns = lang === 'en' ? memoryRecallPatternsEn : memoryRecallPatternsFr;
-    const isMemoryRecallQuery = patterns.some(p => p.test(messageLower));
+    let isMemoryRecallQuery = patterns.some(p => p.test(messageLower));
+
+    // NEW: Also detect simple confirmations after Mira asked about memory/goals
+    // Check if user says "yes", "tell me", "tell me now", etc. after Mira's last message
+    // was asking about listing things or confirming memory recall
+    if (!isMemoryRecallQuery) {
+      const confirmationPatternsEn = [
+        /^yes$/i,
+        /^yeah$/i,
+        /^yep$/i,
+        /^sure$/i,
+        /^ok$/i,
+        /^okay$/i,
+        /^go ahead$/i,
+        /^tell me$/i,
+        /^tell me now$/i,
+        /^list them$/i,
+        /^show me$/i,
+        /^please$/i,
+        /^do it$/i,
+        /^go$/i,
+      ];
+
+      const confirmationPatternsFr = [
+        /^oui$/i,
+        /^ouais$/i,
+        /^ok$/i,
+        /^d'accord$/i,
+        /^vas-?y$/i,
+        /^allez$/i,
+        /^dis[- ]moi$/i,
+        /^montre[- ]moi$/i,
+        /^liste[- ]les$/i,
+        /^s'il te pla[iî]t$/i,
+        /^stp$/i,
+      ];
+
+      const confirmationPatterns = lang === 'en' ? confirmationPatternsEn : confirmationPatternsFr;
+      const isConfirmation = confirmationPatterns.some(p => p.test(messageLower));
+
+      if (isConfirmation) {
+        // Check if Mira's last response was asking about memory/goals
+        const lastMiraMessages = recentMessages
+          .filter(m => m.role === 'assistant')
+          .slice(-3);
+
+        const memoryAskPatternsEn = [
+          /remember.*\?/i,
+          /list.*\?/i,
+          /goals?\s*\?/i,
+          /ready.*\?/i,
+          /want me to/i,
+          /should i/i,
+          /making sure/i,
+          /right track/i,
+        ];
+
+        const memoryAskPatternsFr = [
+          /rappell?e.*\?/i,
+          /liste.*\?/i,
+          /objectifs?.*\?/i,
+          /prêt.*\?/i,
+          /tu veux que/i,
+          /je te les/i,
+        ];
+
+        const askPatterns = lang === 'en' ? memoryAskPatternsEn : memoryAskPatternsFr;
+
+        const miraWasAskingAboutMemory = lastMiraMessages.some(msg =>
+          askPatterns.some(p => p.test(msg.content.toLowerCase()))
+        );
+
+        if (miraWasAskingAboutMemory) {
+          isMemoryRecallQuery = true;
+          console.log('[MessageService] 🧠 Detected confirmation after memory question');
+        }
+      }
+    }
 
     if (!isMemoryRecallQuery) {
       return null;

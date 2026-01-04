@@ -7,6 +7,35 @@ export interface ExtractedFact {
   entities?: string[];
 }
 
+// Valid categories for memory schema
+const VALID_CATEGORIES = ['personal', 'professional', 'health', 'goals', 'preferences', 'relationship', 'emotional'];
+
+// Map invalid categories to valid ones
+const CATEGORY_MAPPING: Record<string, string> = {
+  'context': 'personal',
+  'general': 'personal',
+  'work': 'professional',
+  'career': 'professional',
+  'job': 'professional',
+  'family': 'relationship',
+  'friends': 'relationship',
+  'hobby': 'preferences',
+  'interest': 'preferences',
+  'emotion': 'emotional',
+  'feeling': 'emotional',
+  'goal': 'goals',
+  'plan': 'goals',
+  'dream': 'goals',
+};
+
+function normalizeCategory(category: string): string {
+  const lower = category?.toLowerCase()?.trim() || 'personal';
+  if (VALID_CATEGORIES.includes(lower)) {
+    return lower;
+  }
+  return CATEGORY_MAPPING[lower] || 'personal';
+}
+
 export class ExtractionService {
   private llmService = new LLMService();
 
@@ -35,7 +64,13 @@ Message: "${content}"`;
 
     try {
       const facts = await this.llmService.extract(prompt);
-      return Array.isArray(facts) ? facts : [];
+      if (!Array.isArray(facts)) return [];
+
+      // Normalize categories to valid enum values
+      return facts.map(fact => ({
+        ...fact,
+        category: normalizeCategory(fact.category),
+      }));
     } catch (error) {
       console.error('Extraction error:', error);
       return [];
