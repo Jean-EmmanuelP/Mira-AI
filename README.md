@@ -227,53 +227,48 @@ Variables are pre-configured: `{{baseUrl}}` = `http://localhost:3000`, `{{userId
 
 ### Prerequisites
 
-- Node.js 20+
 - Docker & Docker Compose
 - At least one LLM API key (Gemini, Claude, or Mistral)
 
-### 1. Clone and Install
+### 1. Clone and Configure
 
 ```bash
-git clone <repository-url>
-cd Mira
-npm install
-```
-
-### 2. Configure Environment
-
-```bash
+git clone https://github.com/Jean-EmmanuelP/Mira-AI.git
+cd Mira-AI
 cp .env.example .env
 ```
 
-Edit `.env`:
+Edit `.env` and add your LLM API key(s):
 ```env
-# Database
-MONGODB_URI=mongodb://localhost:27017/mira
-QDRANT_HOST=localhost
-QDRANT_PORT=6333
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
 # LLM (at least one required)
 GOOGLE_GENERATIVE_AI_API_KEY=your-gemini-key
 ANTHROPIC_API_KEY=your-claude-key
 MISTRAL_API_KEY=your-mistral-key
-
-# Optional: Voice
-GRADIUM_API_KEY=your-gradium-key
 ```
 
-### 3. Start Everything
+### 2. Start Everything (Single Command)
 
 ```bash
-# Start databases
-docker-compose up -d
-
-# Start API
-npm run dev
+docker compose up
 ```
 
-### 4. Test It Works
+That's it! This starts:
+- **Mira API** on http://localhost:3000
+- **MongoDB** for data persistence
+- **Qdrant** for vector search
+- **Redis** for caching
+
+### Alternative: Local Development
+
+If you prefer running without Docker:
+
+```bash
+npm install
+docker compose up -d mongodb redis qdrant  # Start only databases
+npm run dev                                  # Start API in dev mode
+```
+
+### 3. Test It Works
 
 ```bash
 # Health check
@@ -292,7 +287,7 @@ curl -X POST http://localhost:3000/chat \
 # Expected: Mira mentions Sophie, Google interview, and Max!
 ```
 
-### 5. Interactive CLI Mode
+### 4. Interactive CLI Mode (Optional)
 
 ```bash
 ./start.sh
