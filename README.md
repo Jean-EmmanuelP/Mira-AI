@@ -8,12 +8,16 @@
 git clone https://github.com/Jean-EmmanuelP/Mira-AI.git
 cd Mira-AI
 cp .env.example .env   # Add at least one LLM API key
-docker compose up
+./start.sh
 ```
 
-API available at `http://localhost:3000`
+This starts all services with logs visible in your terminal:
+- **Mira API** on `http://localhost:3000`
+- **MongoDB** for data storage
+- **Redis** for caching
+- **Qdrant** for vector search (semantic memory)
 
-> On first run, you'll be prompted to enter your API keys if `.env` is not configured.
+Press `Ctrl+C` to stop all services.
 
 ## Test the API with Postman
 
