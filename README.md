@@ -13,7 +13,23 @@ docker compose up
 
 API available at `http://localhost:3000`
 
-## Test the Memory
+> On first run, you'll be prompted to enter your API keys if `.env` is not configured.
+
+## Test the API with Postman
+
+Import the included Postman collection to test all endpoints:
+
+**`Mira-API.postman_collection.json`**
+
+The collection includes:
+- **Health & System** - Health check, API test, system stats
+- **Chat** - Send messages, test memory recall, language support (EN/FR)
+- **Memory** - View stored memories by user/category
+- **Profile** - Get AI-generated user summaries
+- **User Management** - List users, delete user data
+- **Messages API** - Greetings, full chat endpoint, conversation history
+
+### Quick Test with curl
 
 ```bash
 # 1. Introduce yourself
@@ -28,8 +44,6 @@ curl -X POST http://localhost:3000/chat \
 
 # Expected: Mira mentions Sophie, Google interview, and Max!
 ```
-
-**Postman collection included:** `Mira-API.postman_collection.json`
 
 ---
 
