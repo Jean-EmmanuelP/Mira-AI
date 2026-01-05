@@ -1,418 +1,371 @@
 {
-  "info": {
-    "_postman_id": "mira-api-collection",
-    "name": "Mira API",
-    "description": "Mira - AI Companion That Remembers Who You Are\n\nA comprehensive API collection for testing all Mira endpoints including chat, memories, profiles, and system health.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3000",
-      "type": "string"
-    },
-    {
-      "key": "userId",
-      "value": "test-user-123",
-      "type": "string"
-    },
-    {
-      "key": "conversationId",
-      "value": "conv-{{$timestamp}}",
-      "type": "string"
-    }
-  ],
-  "item": [
-    {
-      "name": "Health & System",
-      "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
-            },
-            "description": "Check if the API is running and healthy."
-          },
-          "response": []
-        },
-        {
-          "name": "API Test",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/test",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "test"]
-            },
-            "description": "Test endpoint to verify API is responding."
-          },
-          "response": []
-        },
-        {
-          "name": "System Stats",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/stats",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "stats"]
-            },
-            "description": "Get system statistics including message counts, memory usage, and uptime."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Chat",
-      "item": [
-        {
-          "name": "Send Message (Simple)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"message\": \"Hello! I'm testing the Mira API.\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
-            },
-            "description": "Send a simple text message to Mira using the main /chat endpoint."
-          },
-          "response": []
-        },
-        {
-          "name": "Send Message (with Conversation ID)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"message\": \"Can you remember what I told you earlier?\",\n  \"conversationId\": \"{{conversationId}}\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
-            },
-            "description": "Send a message with a specific conversation ID to maintain context."
-          },
-          "response": []
-        },
-        {
-          "name": "Introduce Yourself",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"message\": \"Hi! My name is Jean and I work as a software developer. I love hiking and coffee.\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
-            },
-            "description": "Introduce yourself to Mira. This will create memories about you."
-          },
-          "response": []
-        },
-        {
-          "name": "Test Memory Recall",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"message\": \"What do you remember about my job?\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
-            },
-            "description": "Test if Mira remembers information you shared earlier."
-          },
-          "response": []
-        },
-        {
-          "name": "Full Chat Endpoint",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"conversationId\": \"{{conversationId}}\",\n  \"content\": \"This is using the full message endpoint.\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/messages/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "messages", "chat"]
-            },
-            "description": "Use the full /api/v1/messages/chat endpoint for more detailed message handling."
-          },
-          "response": []
-        },
-        {
-          "name": "Send Audio Message",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "audio",
-                  "type": "file",
-                  "src": "",
-                  "description": "Select a WAV or PCM audio file"
-                },
-                {
-                  "key": "userId",
-                  "value": "{{userId}}",
-                  "type": "text"
-                },
-                {
-                  "key": "conversationId",
-                  "value": "{{conversationId}}",
-                  "type": "text"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
-            },
-            "description": "Send an audio message (WAV/PCM format). Requires GRADIUM_API_KEY to be configured.\n\nNote: Select an audio file in the 'audio' field before sending."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Memories",
-      "item": [
-        {
-          "name": "Get User Memories",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/memories?userId={{userId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "memories"],
-              "query": [
-                {
-                  "key": "userId",
-                  "value": "{{userId}}"
-                }
-              ]
-            },
-            "description": "Retrieve all semantic memories stored for a specific user."
-          },
-          "response": []
-        },
-        {
-          "name": "Get Memories with Limit",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/memories?userId={{userId}}&limit=5",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "memories"],
-              "query": [
-                {
-                  "key": "userId",
-                  "value": "{{userId}}"
-                },
-                {
-                  "key": "limit",
-                  "value": "5"
-                }
-              ]
-            },
-            "description": "Retrieve memories with a limit on the number returned."
-          },
-          "response": []
-        },
-        {
-          "name": "Search Memories by Query",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/memories?userId={{userId}}&query=job",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "memories"],
-              "query": [
-                {
-                  "key": "userId",
-                  "value": "{{userId}}"
-                },
-                {
-                  "key": "query",
-                  "value": "job"
-                }
-              ]
-            },
-            "description": "Search memories semantically by a query term. Uses vector similarity to find relevant memories."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Profile",
-      "item": [
-        {
-          "name": "Get User Profile",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/profile/{{userId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "profile", "{{userId}}"]
-            },
-            "description": "Get the extracted profile information for a user including name, occupation, interests, etc."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Test Scenarios",
-      "item": [
-        {
-          "name": "1. New User Introduction",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": \"scenario-user-{{$timestamp}}\",\n  \"message\": \"Bonjour! Je m'appelle Marie et je suis photographe. J'habite a Paris et j'adore le cinema.\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
-            },
-            "description": "Step 1: Introduce a new user with personal details."
-          },
-          "response": []
-        },
-        {
-          "name": "2. Follow-up Conversation",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": \"scenario-user\",\n  \"message\": \"Qu'est-ce que tu sais de moi?\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
-            },
-            "description": "Step 2: Ask Mira what it remembers about the user."
-          },
-          "response": []
-        },
-        {
-          "name": "3. Update Information",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": \"scenario-user\",\n  \"message\": \"En fait, j'ai demenage a Lyon recemment et j'ai commence un nouveau projet de documentaire.\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
-            },
-            "description": "Step 3: Update user information to test memory updates."
-          },
-          "response": []
-        },
-        {
-          "name": "4. Verify Updated Memory",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": \"scenario-user\",\n  \"message\": \"Ou est-ce que j'habite maintenant?\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
-            },
-            "description": "Step 4: Verify that Mira remembers the updated information."
-          },
-          "response": []
-        }
-      ]
-    }
-  ]
+	"info": {
+		"_postman_id": "mira-api-collection",
+		"name": "Mira API",
+		"description": "API collection for Mira - AI Companion That Remembers Who You Are",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "test-user",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Health & System",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						},
+						"description": "Check if the server is running"
+					}
+				},
+				{
+					"name": "API Test",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/test",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "test"]
+						},
+						"description": "Test API connectivity"
+					}
+				},
+				{
+					"name": "System Stats",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/stats",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "stats"]
+						},
+						"description": "Get system statistics"
+					}
+				}
+			]
+		},
+		{
+			"name": "Chat",
+			"item": [
+				{
+					"name": "1. First Message - Introduce Yourself",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"message\": \"Hi! I'm Sophie. I'm a UX designer and I have a job interview at Google tomorrow. My dog Max helps me relax when I'm stressed.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["chat"]
+						},
+						"description": "Send first message introducing yourself. Mira will extract and store facts about you."
+					}
+				},
+				{
+					"name": "2. Test Memory Recall",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"message\": \"Hey! Do you remember what I told you about myself?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["chat"]
+						},
+						"description": "Test if Mira remembers facts from the previous message (Sophie, UX designer, Google interview, dog Max)"
+					}
+				},
+				{
+					"name": "3. Test Goal Follow-up",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"message\": \"The interview went great! I got the job!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["chat"]
+						},
+						"description": "Follow up on the Google interview goal"
+					}
+				},
+				{
+					"name": "4. Add New Memory",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"message\": \"By the way, I'm training for a marathon in 3 months. Running helps me clear my head.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["chat"]
+						},
+						"description": "Add new information about goals and hobbies"
+					}
+				},
+				{
+					"name": "Chat with Language (French)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"message\": \"Salut! Comment tu vas aujourd'hui?\",\n    \"lang\": \"fr\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["chat"]
+						},
+						"description": "Chat in French (set lang to 'fr')"
+					}
+				},
+				{
+					"name": "Chat with Language (English)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"message\": \"Hey what's up?\",\n    \"lang\": \"en\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["chat"]
+						},
+						"description": "Chat in English (set lang to 'en')"
+					}
+				}
+			]
+		},
+		{
+			"name": "Memory",
+			"item": [
+				{
+					"name": "Get User Memories",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/memories?userId={{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "memories"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}"
+								}
+							]
+						},
+						"description": "Get all semantic memories stored for a user"
+					}
+				},
+				{
+					"name": "Get Memories by Category",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/memories?userId={{userId}}&category=goals",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "memories"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}"
+								},
+								{
+									"key": "category",
+									"value": "goals"
+								}
+							]
+						},
+						"description": "Get memories filtered by category (personal, professional, relationship, goals, emotional, preferences, health)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Profile",
+			"item": [
+				{
+					"name": "Get User Profile",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/profile/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "profile", "{{userId}}"]
+						},
+						"description": "Get generated user profile with summary and active goals"
+					}
+				}
+			]
+		},
+		{
+			"name": "User Management",
+			"item": [
+				{
+					"name": "List All Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users"]
+						},
+						"description": "Get list of all user IDs in the system"
+					}
+				},
+				{
+					"name": "Delete User Data",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{userId}}"]
+						},
+						"description": "Delete all data for a user (messages, memories, goals, profile)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Messages API",
+			"item": [
+				{
+					"name": "Get User Greeting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"lang\": \"en\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/messages/greeting",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "messages", "greeting"]
+						},
+						"description": "Get a personalized greeting for a user (different for new vs returning users)"
+					}
+				},
+				{
+					"name": "Chat (Full Endpoint)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"conversationId\": \"conv-123\",\n    \"content\": \"Hello! How are you today?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/messages/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "messages", "chat"]
+						},
+						"description": "Alternative chat endpoint with full options"
+					}
+				},
+				{
+					"name": "Get Conversation History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/messages/history?userId={{userId}}&limit=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "messages", "history"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Get conversation history for a user"
+					}
+				}
+			]
+		}
+	]
 }
