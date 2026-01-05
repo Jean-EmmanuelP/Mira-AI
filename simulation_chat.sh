@@ -112,7 +112,19 @@ while true; do
 
     # Send message to Mira
     echo ""
-    echo -e "${MAGENTA}Mira:${NC}"
+
+    # Simulate "vu" (seen) indicator
+    echo -ne "${BLUE}Vu ✓${NC}"
+    sleep 0.3
+    echo -ne "\r        \r"
+
+    # Simulate "lu" (read) indicator
+    echo -ne "${BLUE}Lu ✓✓${NC}"
+    sleep 0.4
+    echo -ne "\r        \r"
+
+    # Simulate "écrit" (typing) indicator
+    echo -ne "${YELLOW}Mira écrit...${NC}"
 
     # Escape message for JSON
     escaped_message=$(echo "$message" | sed 's/\\/\\\\/g; s/"/\\"/g')
@@ -121,6 +133,10 @@ while true; do
     response=$(curl -s -X POST "$API_URL/chat" \
         -H "Content-Type: application/json" \
         -d @/tmp/mira_req.json)
+
+    # Clear "typing" indicator and show Mira's response
+    echo -ne "\r                    \r"
+    echo -e "${MAGENTA}Mira:${NC}"
 
     mira_reply=$(echo "$response" | jq -r '.response // "..."')
     echo -e "${GREEN}$mira_reply${NC}"
