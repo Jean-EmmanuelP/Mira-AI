@@ -58,9 +58,10 @@ echo ""
 
 # Get initial greeting
 echo -e "${MAGENTA}Mira:${NC}"
+echo "{\"userId\":\"$USER_ID\",\"lang\":\"$LANG\"}" > /tmp/mira_req.json
 greeting=$(curl -s -X POST "$API_URL/api/v1/messages/greeting" \
     -H "Content-Type: application/json" \
-    -d "{\"userId\":\"$USER_ID\",\"lang\":\"$LANG\"}" | jq -r '.greeting // .message // "Hey!"')
+    -d @/tmp/mira_req.json | jq -r '.greeting // .message // "Hey!"')
 echo -e "${GREEN}$greeting${NC}"
 echo ""
 
@@ -113,9 +114,13 @@ while true; do
     echo ""
     echo -e "${MAGENTA}Mira:${NC}"
 
+    # Escape message for JSON
+    escaped_message=$(echo "$message" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    echo "{\"userId\":\"$USER_ID\",\"message\":\"$escaped_message\",\"lang\":\"$LANG\"}" > /tmp/mira_req.json
+
     response=$(curl -s -X POST "$API_URL/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"userId\":\"$USER_ID\",\"message\":\"$message\",\"lang\":\"$LANG\"}")
+        -d @/tmp/mira_req.json)
 
     mira_reply=$(echo "$response" | jq -r '.response // "..."')
     echo -e "${GREEN}$mira_reply${NC}"
