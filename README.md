@@ -8,16 +8,11 @@
 git clone https://github.com/Jean-EmmanuelP/Mira-AI.git
 cd Mira-AI
 cp .env.example .env   # Add at least one LLM API key
-./start.sh
+docker compose up -d   # Start all services
+./simulation_chat.sh   # Interactive chat demo
 ```
 
-This starts all services with logs visible in your terminal:
-- **Mira API** on `http://localhost:3000`
-- **MongoDB** for data storage
-- **Redis** for caching
-- **Qdrant** for vector search (semantic memory)
-
-Press `Ctrl+C` to stop all services.
+API available at `http://localhost:3000`
 
 ## Test the API with Postman
 
